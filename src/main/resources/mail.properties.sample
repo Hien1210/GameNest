@@ -1,0 +1,9 @@
+mail.smtp.host=smtp.gmail.com
+mail.smtp.port=587
+mail.username=your-gmail-address@gmail.com
+mail.password=CHANGE_ME_APP_PASSWORD
+mail.from.name=GameNest
+
+# Copy this file to mail.properties (gitignored) and fill in real values,
+# or set MAIL_USERNAME / MAIL_PASSWORD as environment variables instead.
+# mail.password must be a Gmail App Password, not your normal account password.

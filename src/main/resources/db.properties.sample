@@ -1,0 +1,16 @@
+# LƯU Ý QUAN TRỌNG (setup 2 máy): nếu Tomcat chạy trên máy KHÁC với máy chạy
+# SQL Server (ví dụ: PC code backend, Laptop làm server DB), "localhost"
+# KHÔNG hoạt động — nó luôn trỏ về chính máy đang chạy Tomcat, không phải
+# máy chạy SQL Server. Phải dùng IP LAN thật của máy chạy SQL Server, ví dụ
+# jdbc:sqlserver://192.168.1.14:1433;...
+#
+# Khuyến nghị: đặt SQL Server dùng TCP port CỐ ĐỊNH (vd. 1433) qua SQL Server
+# Configuration Manager thay vì port động — port động đổi mỗi lần restart
+# service, dễ gây lỗi kết nối liên tục.
+
+db.url=jdbc:sqlserver://<IP_LAN_may_chay_SQL_Server>:1433;databaseName=GameNestDB;encrypt=true;trustServerCertificate=true
+db.username=GameNestSvcLogin
+db.password=CHANGE_ME
+
+# Copy this file to db.properties (gitignored) and fill in real values,
+# or set DB_URL / DB_USERNAME / DB_PASSWORD as environment variables instead.

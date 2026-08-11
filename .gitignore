@@ -1,0 +1,12 @@
+target/
+*.class
+
+.idea/
+*.iml
+out/
+
+db.properties
+mail.properties
+*.env
+
+*.log
