@@ -18,6 +18,7 @@ import java.io.IOException;
  */
 @WebFilter(urlPatterns = {
         "/account/home.jsp",
+        "/account/profile",
         "/questions/new",
         "/questions/edit",
         "/questions/delete",

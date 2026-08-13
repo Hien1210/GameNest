@@ -4,7 +4,9 @@
 <% request.setAttribute("pageTitle", "Dashboard"); %>
 <%@ include file="/WEB-INF/admin/layout/header.jsp" %>
 
-<h1>Dashboard</h1>
+<div class="admin-page-header">
+    <h1>Dashboard</h1>
+</div>
 
 <% if (request.getAttribute("error") != null) { %>
     <p style="color: var(--error-color); margin-bottom: 20px;"><%= HtmlUtils.escape((String) request.getAttribute("error")) %></p>

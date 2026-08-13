@@ -27,7 +27,7 @@ body.admin-body::after {
     align-items: center;
     gap: 16px;
     padding: 14px 24px;
-    background: var(--bg-secondary);
+    background: #12121d; /* solid — tránh rgba xuyên thấu khi scroll */
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
@@ -60,34 +60,204 @@ body.admin-body::after {
     gap: 14px;
 }
 
-.admin-user {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+/* ---------- Avatar dropdown ---------- */
+.admin-avatar-menu {
+    position: relative;
 }
 
-.admin-logout-form {
-    margin: 0;
-}
-
-.admin-logout-btn {
+.admin-avatar-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    border-radius: 999px;
     border: 1px solid var(--border-color);
     background: transparent;
     color: var(--text-primary);
     cursor: pointer;
+    font-family: inherit;
     font-size: 0.85rem;
+    transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.admin-logout-btn:hover {
+.admin-avatar-btn:hover {
     border-color: var(--border-hover);
+    background: rgba(255, 255, 255, 0.04);
 }
 
-.admin-logout-btn .material-symbols-outlined {
-    font-size: 18px;
+.admin-avatar-btn:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}
+
+.admin-avatar-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.admin-avatar-circle-lg {
+    width: 42px;
+    height: 42px;
+    font-size: 0.95rem;
+}
+
+.admin-avatar-img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.admin-avatar-img-lg {
+    width: 42px;
+    height: 42px;
+}
+
+.admin-avatar-name {
+    color: var(--text-secondary);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-avatar-caret {
+    font-size: 18px !important;
+    color: var(--text-secondary);
+    transition: transform 0.18s ease;
+}
+
+.admin-avatar-menu.open .admin-avatar-caret {
+    transform: rotate(180deg);
+}
+
+.admin-avatar-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 240px;
+    background: #14141f; /* solid — tránh rgba xuyên thấu */
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(139, 92, 246, 0.08),
+        0 0 22px rgba(6, 182, 212, 0.08);
+    padding: 8px;
+    z-index: 40;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.admin-avatar-menu.open .admin-avatar-dropdown {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.admin-avatar-dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 12px;
+}
+
+.admin-avatar-dropdown-name {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.92rem;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-avatar-dropdown-role {
+    margin-top: 3px;
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.12);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+
+.admin-avatar-dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 6px;
+}
+
+.admin-avatar-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.86rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.admin-avatar-dropdown-item .material-symbols-outlined {
+    font-size: 19px;
+    color: var(--text-secondary);
+}
+
+.admin-avatar-dropdown-item:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-avatar-dropdown-item:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: -2px;
+}
+
+.admin-avatar-dropdown-item.disabled {
+    color: var(--text-secondary);
+    opacity: 0.55;
+    cursor: default;
+}
+
+.admin-avatar-dropdown-item .admin-soon {
+    margin-left: auto;
+}
+
+.admin-avatar-dropdown-form {
+    margin: 0;
+}
+
+.admin-avatar-dropdown-logout {
+    color: #ef4444;
+}
+
+.admin-avatar-dropdown-logout .material-symbols-outlined {
+    color: #ef4444;
+}
+
+.admin-avatar-dropdown-logout:hover {
+    background: rgba(239, 68, 68, 0.1);
 }
 
 /* ---------- Shell: sidebar + content ---------- */
@@ -100,12 +270,13 @@ body.admin-body::after {
 .admin-sidebar {
     width: 230px;
     flex-shrink: 0;
-    background: var(--bg-secondary);
+    background: #12121d; /* solid — tránh rgba xuyên thấu khi scroll */
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 18px 12px;
+    overflow-y: auto; /* #9: sidebar scroll khi nhiều menu items */
 }
 
 .admin-nav {
@@ -202,6 +373,20 @@ body.admin-body::after {
     text-decoration: none;
     display: inline-block;
     font-size: 0.9rem;
+    font-family: inherit;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+/* #5: Hover + active feedback cho nút chính */
+.admin-btn:hover {
+    background: #9b6bf7;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45);
+}
+
+.admin-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 .admin-table {
@@ -220,8 +405,27 @@ body.admin-body::after {
     font-size: 0.9rem;
 }
 
+/* #2: Header row có background riêng, dễ phân biệt với data */
+.admin-table thead th {
+    background: rgba(139, 92, 246, 0.08);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border-hover);
+}
+
+/* #7: Hover highlight cho table rows */
+.admin-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
 .admin-badge-active { color: var(--success-color); }
 .admin-badge-inactive { color: var(--text-secondary); }
+.admin-badge-banned { color: var(--error-color); }
+.admin-badge-suspended { color: #f59e0b; /* Amber */ }
+.admin-badge-deleted { color: var(--text-secondary); text-decoration: line-through; }
 
 .admin-actions form,
 .admin-actions a {
@@ -230,7 +434,9 @@ body.admin-body::after {
 }
 
 .admin-actions button,
-.admin-actions a {
+.admin-actions a,
+.admin-detail-actions button,
+.admin-detail-actions a {
     padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -239,6 +445,46 @@ body.admin-body::after {
     cursor: pointer;
     text-decoration: none;
     font-size: 0.85rem;
+    font-family: inherit;
+    transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+/* #3: Semantic màu cho từng loại action */
+
+/* Sửa — cyan/neutral */
+.admin-actions .btn-edit,
+.admin-detail-actions .btn-edit {
+    border-color: rgba(6, 182, 212, 0.35);
+    color: var(--accent-cyan);
+}
+.admin-actions .btn-edit:hover,
+.admin-detail-actions .btn-edit:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.08);
+}
+
+/* Deactivate — đỏ cảnh báo */
+.admin-actions .btn-danger,
+.admin-detail-actions .btn-danger {
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #ef4444;
+}
+.admin-actions .btn-danger:hover,
+.admin-detail-actions .btn-danger:hover {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* Activate — xanh lá */
+.admin-actions .btn-success,
+.admin-detail-actions .btn-success {
+    border-color: rgba(16, 185, 129, 0.35);
+    color: var(--success-color);
+}
+.admin-actions .btn-success:hover,
+.admin-detail-actions .btn-success:hover {
+    border-color: var(--success-color);
+    background: rgba(16, 185, 129, 0.08);
 }
 
 .admin-pagination {
@@ -257,6 +503,61 @@ body.admin-body::after {
 
 .admin-pagination a.current {
     border-color: var(--accent-purple);
+}
+
+.admin-search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.admin-search-bar input {
+    flex: 1;
+    max-width: 320px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.admin-search-bar input:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.admin-detail-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 20px 24px;
+    max-width: 560px;
+}
+
+.admin-detail-card dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    row-gap: 12px;
+    column-gap: 12px;
+    margin: 0 0 20px;
+}
+
+.admin-detail-card dt {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.admin-detail-card dd {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.admin-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .admin-form-group {
@@ -279,11 +580,84 @@ body.admin-body::after {
     border: 1px solid var(--border-color);
     background: var(--bg-primary);
     color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+/* #6: Focus style rõ ràng cho form inputs */
+.admin-form-group input:focus,
+.admin-form-group textarea:focus,
+.admin-form-group select:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
 .admin-form-group textarea {
     min-height: 100px;
     resize: vertical;
+}
+
+/* ---------- Search Bar ---------- */
+.admin-search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.admin-search-bar input {
+    flex: 1;
+    max-width: 400px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.admin-search-bar input:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+/* ---------- Detail Cards ---------- */
+.admin-detail-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.admin-detail-card dl {
+    display: grid;
+    grid-template-columns: minmax(120px, max-content) 1fr;
+    gap: 12px 24px;
+    margin-bottom: 24px;
+    font-size: 0.95rem;
+}
+
+.admin-detail-card dt {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.admin-detail-card dd {
+    color: var(--text-primary);
+}
+
+.admin-detail-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
 }
 
 .admin-back-link {
@@ -311,6 +685,14 @@ body.admin-body::after {
     text-decoration: none;
     color: var(--text-primary);
     display: block;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+/* #4: Hover effect cho stat cards — kể cả div lẫn <a> */
+.admin-stat-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.12);
+    transform: translateY(-2px);
 }
 
 .admin-stat-card .label {
@@ -395,7 +777,11 @@ body.admin-body::after {
         padding: 20px 16px;
     }
 
-    .admin-logout-label {
+    .admin-avatar-name {
         display: none;
+    }
+
+    .admin-avatar-dropdown {
+        width: min(240px, calc(100vw - 48px));
     }
 }

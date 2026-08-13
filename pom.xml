@@ -48,6 +48,13 @@
             <version>2.0.1</version>
         </dependency>
 
+        <!-- Cloudinary Java SDK for avatar image storage (external API, CLAUDE.md §15) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http5</artifactId>
+            <version>2.4.0</version>
+        </dependency>
+
         <!-- JUnit 5 for testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

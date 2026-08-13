@@ -40,15 +40,15 @@
             <td class="<%= GameStatus.ACTIVE.equals(g.getStatus()) ? "admin-badge-active" : "admin-badge-inactive" %>"><%= g.getStatus() %></td>
             <td><%= g.getReleaseDate() != null ? g.getReleaseDate().toString() : "-" %></td>
             <td class="admin-actions">
-                <a href="${pageContext.request.contextPath}/admin/games/edit?id=<%= g.getGameId() %>">Sửa</a>
+                <a class="btn-edit" href="${pageContext.request.contextPath}/admin/games/edit?id=<%= g.getGameId() %>">Sửa</a>
                 <form action="${pageContext.request.contextPath}/admin/games/status" method="post">
                     <input type="hidden" name="id" value="<%= g.getGameId() %>">
                     <% if (GameStatus.ACTIVE.equals(g.getStatus())) { %>
                         <input type="hidden" name="action" value="deactivate">
-                        <button type="submit">Deactivate</button>
+                        <button type="submit" class="btn-danger">Deactivate</button>
                     <% } else { %>
                         <input type="hidden" name="action" value="activate">
-                        <button type="submit">Activate</button>
+                        <button type="submit" class="btn-success">Activate</button>
                     <% } %>
                 </form>
             </td>

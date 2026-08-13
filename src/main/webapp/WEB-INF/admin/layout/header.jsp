@@ -11,10 +11,20 @@
 
     Object displayNameAttr = session.getAttribute("displayName");
     Object usernameAttr = session.getAttribute("username");
+    Object roleAttr = session.getAttribute("role");
     String adminLabel = displayNameAttr != null ? (String) displayNameAttr
             : (usernameAttr != null ? (String) usernameAttr : null);
+    String adminRole = roleAttr != null ? (String) roleAttr : "ADMIN";
+    String avatarInitial = (adminLabel != null && !adminLabel.isEmpty())
+            ? adminLabel.substring(0, 1).toUpperCase()
+            : "A";
+    Object avatarUrlAttr = session.getAttribute("avatarUrl");
+    String avatarUrl = (avatarUrlAttr instanceof String && !((String) avatarUrlAttr).isEmpty())
+            ? (String) avatarUrlAttr
+            : null;
 
     boolean navDashboard = servletPath.equals("/admin/dashboard");
+    boolean navAccounts = servletPath.startsWith("/admin/accounts");
     boolean navGames = servletPath.startsWith("/admin/games");
 %>
 <!DOCTYPE html>
@@ -36,15 +46,58 @@
     </button>
     <span class="admin-brand">GameNest Admin</span>
     <div class="admin-topbar-right">
-        <% if (adminLabel != null) { %>
-            <span class="admin-user"><%= HtmlUtils.escape(adminLabel) %></span>
-        <% } %>
-        <form action="<%= ctx %>/logout" method="post" class="admin-logout-form">
-            <button type="submit" class="admin-logout-btn">
-                <span class="material-symbols-outlined">logout</span>
-                <span class="admin-logout-label">Đăng xuất</span>
+        <div class="admin-avatar-menu" id="adminAvatarMenu">
+            <button type="button" class="admin-avatar-btn" id="adminAvatarBtn"
+                    aria-haspopup="true" aria-expanded="false" aria-controls="adminAvatarDropdown"
+                    aria-label="Menu tài khoản admin">
+                <% if (avatarUrl != null) { %>
+                    <img class="admin-avatar-img" src="<%= HtmlUtils.escape(avatarUrl) %>" alt="Avatar">
+                <% } else { %>
+                    <span class="admin-avatar-circle" aria-hidden="true"><%= avatarInitial %></span>
+                <% } %>
+                <% if (adminLabel != null) { %>
+                    <span class="admin-avatar-name"><%= HtmlUtils.escape(adminLabel) %></span>
+                <% } %>
+                <span class="material-symbols-outlined admin-avatar-caret" aria-hidden="true">expand_more</span>
             </button>
-        </form>
+
+            <div class="admin-avatar-dropdown" id="adminAvatarDropdown" role="menu" aria-hidden="true">
+                <div class="admin-avatar-dropdown-header">
+                    <% if (avatarUrl != null) { %>
+                        <img class="admin-avatar-img admin-avatar-img-lg" src="<%= HtmlUtils.escape(avatarUrl) %>" alt="Avatar">
+                    <% } else { %>
+                        <span class="admin-avatar-circle admin-avatar-circle-lg" aria-hidden="true"><%= avatarInitial %></span>
+                    <% } %>
+                    <div>
+                        <div class="admin-avatar-dropdown-name"><%= HtmlUtils.escape(adminLabel != null ? adminLabel : "Admin") %></div>
+                        <span class="admin-avatar-dropdown-role"><%= HtmlUtils.escape(adminRole) %></span>
+                    </div>
+                </div>
+                <div class="admin-avatar-dropdown-divider"></div>
+
+                <a class="admin-avatar-dropdown-item" role="menuitem" href="<%= ctx %>/admin/dashboard">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Admin Dashboard</span>
+                </a>
+                <a class="admin-avatar-dropdown-item" role="menuitem" href="<%= ctx %>/account/profile">
+                    <span class="material-symbols-outlined">person</span>
+                    <span>Hồ sơ cá nhân</span>
+                </a>
+                <span class="admin-avatar-dropdown-item disabled" role="menuitem" aria-disabled="true" title="Chưa triển khai">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Cài đặt tài khoản</span>
+                    <span class="admin-soon">Sắp có</span>
+                </span>
+
+                <div class="admin-avatar-dropdown-divider"></div>
+                <form action="<%= ctx %>/logout" method="post" class="admin-avatar-dropdown-form">
+                    <button type="submit" class="admin-avatar-dropdown-item admin-avatar-dropdown-logout" role="menuitem">
+                        <span class="material-symbols-outlined">logout</span>
+                        <span>Đăng xuất</span>
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 </header>
 
@@ -55,11 +108,10 @@
                 <span class="material-symbols-outlined">dashboard</span>
                 <span>Dashboard</span>
             </a>
-            <span class="admin-nav-item disabled" title="Chưa triển khai">
+            <a class="admin-nav-item<%= navAccounts ? " active" : "" %>" href="<%= ctx %>/admin/accounts">
                 <span class="material-symbols-outlined">group</span>
                 <span>Accounts</span>
-                <span class="admin-soon">Sắp có</span>
-            </span>
+            </a>
             <a class="admin-nav-item<%= navGames ? " active" : "" %>" href="<%= ctx %>/admin/games">
                 <span class="material-symbols-outlined">sports_esports</span>
                 <span>Games</span>

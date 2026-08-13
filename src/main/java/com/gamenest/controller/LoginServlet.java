@@ -54,6 +54,7 @@ public class LoginServlet extends HttpServlet {
             session.setAttribute("username", account.getUsername());
             session.setAttribute("displayName", account.getDisplayName());
             session.setAttribute("role", account.getRole());
+            session.setAttribute("avatarUrl", account.getAvatarUrl());
 
             String destination = AccountRole.ADMIN.equals(account.getRole())
                     ? "/admin/dashboard"
