@@ -33,7 +33,14 @@
                 <span>Đặt lại mật khẩu thành công. Vui lòng đăng nhập.</span>
             </div>
         <% } %>
-        
+
+        <% if (request.getParameter("passwordChanged") != null) { %>
+            <div class="alert alert-success">
+                <span class="material-symbols-outlined alert-icon">check_circle</span>
+                <span>Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại.</span>
+            </div>
+        <% } %>
+
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>

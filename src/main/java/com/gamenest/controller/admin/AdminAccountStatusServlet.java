@@ -4,7 +4,11 @@ import com.gamenest.exception.AccountNotFoundException;
 import com.gamenest.exception.ValidationException;
 import com.gamenest.model.Account;
 import com.gamenest.model.AccountStatus;
+import com.gamenest.model.AuditAction;
+import com.gamenest.model.AuditModule;
+import com.gamenest.model.AuditTargetType;
 import com.gamenest.service.AccountService;
+import com.gamenest.service.AuditLogService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -32,6 +36,7 @@ public class AdminAccountStatusServlet extends HttpServlet {
     private static final String DETAIL_VIEW = "/admin/accounts/detail.jsp";
 
     private final AccountService accountService = new AccountService();
+    private final AuditLogService auditLogService = new AuditLogService();
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -50,7 +55,16 @@ public class AdminAccountStatusServlet extends HttpServlet {
         }
 
         try {
+            Account before = accountService.getAccountForAdmin(accountId);
+            String oldStatus = before.getStatus();
+
             accountService.changeAccountStatus(accountId, targetStatus, (Integer) actingAdminId);
+
+            String description = "đã thay đổi trạng thái Account \"" + before.getUsername()
+                    + "\" từ " + oldStatus + " sang " + targetStatus + ".";
+            auditLogService.log(request, AuditModule.ACCOUNTS, AuditAction.STATUS_CHANGE,
+                    accountId, AuditTargetType.ACCOUNT, description);
+
             response.sendRedirect(request.getContextPath() + "/admin/accounts/detail?id=" + accountId);
 
         } catch (AccountNotFoundException e) {

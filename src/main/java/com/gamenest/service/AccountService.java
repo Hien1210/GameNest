@@ -239,6 +239,80 @@ public class AccountService {
         return avatarUrl;
     }
 
+    // ---- Account Settings (self-service) ----
+
+    /**
+     * Changes the password of the currently logged-in account. The current
+     * password must verify against the stored BCrypt hash before the new
+     * one is accepted — this is the only proof of ownership required, since
+     * the caller already holds an authenticated session. Reuses the same
+     * password rule as registration.
+     */
+    public void changePassword(int accountId, String currentPassword, String newPassword, String confirmPassword)
+            throws AccountNotFoundException, AuthenticationException, ValidationException, SQLException {
+
+        Account account = accountDAO.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Tài khoản không tồn tại."));
+
+        if (currentPassword == null || currentPassword.isEmpty()
+                || !BCrypt.checkpw(currentPassword, account.getPasswordHash())) {
+            throw new AuthenticationException("Mật khẩu hiện tại không đúng.");
+        }
+
+        if (newPassword == null || !newPassword.equals(confirmPassword)) {
+            throw new ValidationException("Mật khẩu xác nhận không khớp.");
+        }
+
+        validatePassword(newPassword);
+
+        String hash = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+        int updated = accountDAO.updatePasswordById(accountId, hash);
+        if (updated == 0) {
+            throw new AccountNotFoundException("Tài khoản không tồn tại.");
+        }
+    }
+
+    /**
+     * Validates a requested new email and, if valid, the caller may proceed
+     * to send an OTP to it. Does NOT touch the database — email is only
+     * updated after OTP verification via {@link #confirmEmailChange}.
+     */
+    public String requestEmailChange(int accountId, String newEmail)
+            throws AccountNotFoundException, ValidationException, DuplicateAccountException, SQLException {
+
+        Account account = accountDAO.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Tài khoản không tồn tại."));
+
+        String normalized = newEmail == null ? null : newEmail.trim().toLowerCase();
+        validateEmail(normalized);
+
+        if (normalized.equals(account.getEmail())) {
+            throw new ValidationException("Email mới phải khác email hiện tại.");
+        }
+        if (accountDAO.findByEmail(normalized).isPresent()) {
+            throw new DuplicateAccountException("Email đã được sử dụng.");
+        }
+
+        return normalized;
+    }
+
+    /**
+     * Persists an email change that has already passed OTP verification
+     * (OTP sent to and confirmed at newEmail). Caller must have verified
+     * the OTP before calling this method.
+     */
+    public void confirmEmailChange(int accountId, String newEmail)
+            throws AccountNotFoundException, DuplicateAccountException, SQLException {
+
+        accountDAO.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Tài khoản không tồn tại."));
+
+        int updated = accountDAO.updateEmail(accountId, newEmail);
+        if (updated == 0) {
+            throw new AccountNotFoundException("Tài khoản không tồn tại.");
+        }
+    }
+
     /**
      * Changes an account's lifecycle status. Status is validated against the
      * known enum values rather than trusted verbatim from the caller, and an

@@ -26,6 +26,7 @@
     boolean navDashboard = servletPath.equals("/admin/dashboard");
     boolean navAccounts = servletPath.startsWith("/admin/accounts");
     boolean navGames = servletPath.startsWith("/admin/games");
+    boolean navAuditLogs = servletPath.startsWith("/admin/audit-logs");
 %>
 <!DOCTYPE html>
 <html lang="vi">
@@ -83,11 +84,10 @@
                     <span class="material-symbols-outlined">person</span>
                     <span>Hồ sơ cá nhân</span>
                 </a>
-                <span class="admin-avatar-dropdown-item disabled" role="menuitem" aria-disabled="true" title="Chưa triển khai">
+                <a class="admin-avatar-dropdown-item" role="menuitem" href="<%= ctx %>/account/settings">
                     <span class="material-symbols-outlined">settings</span>
                     <span>Cài đặt tài khoản</span>
-                    <span class="admin-soon">Sắp có</span>
-                </span>
+                </a>
 
                 <div class="admin-avatar-dropdown-divider"></div>
                 <form action="<%= ctx %>/logout" method="post" class="admin-avatar-dropdown-form">
@@ -115,6 +115,10 @@
             <a class="admin-nav-item<%= navGames ? " active" : "" %>" href="<%= ctx %>/admin/games">
                 <span class="material-symbols-outlined">sports_esports</span>
                 <span>Games</span>
+            </a>
+            <a class="admin-nav-item<%= navAuditLogs ? " active" : "" %>" href="<%= ctx %>/admin/audit-logs">
+                <span class="material-symbols-outlined">history</span>
+                <span>Audit Log</span>
             </a>
             <span class="admin-nav-item disabled" title="Chưa triển khai">
                 <span class="material-symbols-outlined">quiz</span>

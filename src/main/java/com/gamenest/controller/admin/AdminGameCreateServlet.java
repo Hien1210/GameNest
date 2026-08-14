@@ -2,6 +2,11 @@ package com.gamenest.controller.admin;
 
 import com.gamenest.exception.DuplicateGameException;
 import com.gamenest.exception.ValidationException;
+import com.gamenest.model.AuditAction;
+import com.gamenest.model.AuditModule;
+import com.gamenest.model.AuditTargetType;
+import com.gamenest.model.Game;
+import com.gamenest.service.AuditLogService;
 import com.gamenest.service.GameService;
 
 import jakarta.servlet.ServletException;
@@ -24,6 +29,7 @@ public class AdminGameCreateServlet extends HttpServlet {
     private static final String VIEW = "/admin/games/form.jsp";
 
     private final GameService gameService = new GameService();
+    private final AuditLogService auditLogService = new AuditLogService();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -51,7 +57,11 @@ public class AdminGameCreateServlet extends HttpServlet {
 
         try {
             LocalDate releaseDate = parseReleaseDate(releaseDateRaw);
-            gameService.createGame(name, description, coverImageUrl, releaseDate, status);
+            Game created = gameService.createGame(name, description, coverImageUrl, releaseDate, status);
+
+            auditLogService.log(request, AuditModule.GAMES, AuditAction.CREATE,
+                    created.getGameId(), AuditTargetType.GAME,
+                    "đã tạo Game \"" + created.getName() + "\".");
 
             response.sendRedirect(request.getContextPath() + "/admin/games");
 

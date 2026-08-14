@@ -1,6 +1,12 @@
 package com.gamenest.controller.admin;
 
 import com.gamenest.exception.GameNotFoundException;
+import com.gamenest.model.AuditAction;
+import com.gamenest.model.AuditModule;
+import com.gamenest.model.AuditTargetType;
+import com.gamenest.model.Game;
+import com.gamenest.model.GameStatus;
+import com.gamenest.service.AuditLogService;
 import com.gamenest.service.GameService;
 
 import jakarta.servlet.ServletException;
@@ -24,6 +30,7 @@ public class AdminGameStatusServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(AdminGameStatusServlet.class.getName());
 
     private final GameService gameService = new GameService();
+    private final AuditLogService auditLogService = new AuditLogService();
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -32,16 +39,27 @@ public class AdminGameStatusServlet extends HttpServlet {
         int gameId = parseId(request.getParameter("id"));
         String action = request.getParameter("action");
 
+        if (!"activate".equals(action) && !"deactivate".equals(action)) {
+            request.setAttribute("error", "Hành động không hợp lệ.");
+            request.getRequestDispatcher("/admin/games/list.jsp").forward(request, response);
+            return;
+        }
+
         try {
+            Game before = gameService.getGameForAdmin(gameId);
+            String oldStatus = before.getStatus();
+
             if ("activate".equals(action)) {
                 gameService.activateGame(gameId);
-            } else if ("deactivate".equals(action)) {
-                gameService.deactivateGame(gameId);
             } else {
-                request.setAttribute("error", "Hành động không hợp lệ.");
-                request.getRequestDispatcher("/admin/games/list.jsp").forward(request, response);
-                return;
+                gameService.deactivateGame(gameId);
             }
+            String newStatus = "activate".equals(action) ? GameStatus.ACTIVE : GameStatus.INACTIVE;
+
+            auditLogService.log(request, AuditModule.GAMES, AuditAction.STATUS_CHANGE,
+                    gameId, AuditTargetType.GAME,
+                    "đã thay đổi trạng thái Game \"" + before.getName()
+                            + "\" từ " + oldStatus + " sang " + newStatus + ".");
 
             response.sendRedirect(request.getContextPath() + "/admin/games");
 

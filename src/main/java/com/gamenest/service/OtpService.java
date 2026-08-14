@@ -107,13 +107,19 @@ public class OtpService {
     }
 
     private String emailSubject(String purpose) {
-        return OtpPurpose.REGISTER.equals(purpose)
-                ? "GameNest - Mã xác thực đăng ký"
-                : "GameNest - Mã xác thực đặt lại mật khẩu";
+        return switch (purpose) {
+            case OtpPurpose.REGISTER -> "GameNest - Mã xác thực đăng ký";
+            case OtpPurpose.CHANGE_EMAIL -> "GameNest - Mã xác thực đổi email";
+            default -> "GameNest - Mã xác thực đặt lại mật khẩu";
+        };
     }
 
     private String emailBody(String purpose, String code) {
-        String action = OtpPurpose.REGISTER.equals(purpose) ? "hoàn tất đăng ký" : "đặt lại mật khẩu";
+        String action = switch (purpose) {
+            case OtpPurpose.REGISTER -> "hoàn tất đăng ký";
+            case OtpPurpose.CHANGE_EMAIL -> "xác nhận đổi email";
+            default -> "đặt lại mật khẩu";
+        };
         return "<p>Mã OTP để " + action + " tài khoản GameNest của bạn là:</p>"
                 + "<h2>" + code + "</h2>"
                 + "<p>Mã có hiệu lực trong " + OTP_TTL.toMinutes() + " phút. "

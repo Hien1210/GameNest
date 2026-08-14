@@ -208,6 +208,43 @@ public class AccountDAO {
         }
     }
 
+    /**
+     * Self-service password change — updates only password_hash for the
+     * given account. Caller is responsible for verifying the current
+     * password (BCrypt) before calling this method.
+     */
+    public int updatePasswordById(int accountId, String newPasswordHash) throws SQLException {
+        String sql = "UPDATE dbo.Accounts SET password_hash = ?, updated_at = SYSUTCDATETIME() WHERE account_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newPasswordHash);
+            ps.setInt(2, accountId);
+            return ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Self-service email change — updates only email for the given account.
+     * Caller is responsible for having already verified an OTP sent to the
+     * new email before calling this method. The UNIQUE constraint on email
+     * remains the final safety net against a duplicate created in the time
+     * between the service-layer pre-check and this call.
+     */
+    public int updateEmail(int accountId, String newEmail) throws SQLException, DuplicateAccountException {
+        String sql = "UPDATE dbo.Accounts SET email = ?, updated_at = SYSUTCDATETIME() WHERE account_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newEmail);
+            ps.setInt(2, accountId);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            if (e.getErrorCode() == SQL_ERROR_UNIQUE_VIOLATION || e.getErrorCode() == SQL_ERROR_DUPLICATE_KEY) {
+                throw new DuplicateAccountException("Email đã được sử dụng.");
+            }
+            throw e;
+        }
+    }
+
     private String likePattern(String query) {
         String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
         return "%" + escaped + "%";

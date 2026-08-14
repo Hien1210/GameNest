@@ -10,6 +10,8 @@
 <p>Username: ${sessionScope.username}</p>
 
 <p><a href="${pageContext.request.contextPath}/games">Games</a></p>
+<p><a href="${pageContext.request.contextPath}/account/profile">Hồ sơ cá nhân</a></p>
+<p><a href="${pageContext.request.contextPath}/account/settings">Cài đặt tài khoản</a></p>
 
 <% if ("ADMIN".equals(session.getAttribute("role"))) { %>
 <p><a href="${pageContext.request.contextPath}/admin/games">Quản lý Games (Admin)</a></p>

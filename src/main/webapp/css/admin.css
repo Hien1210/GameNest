@@ -345,7 +345,22 @@ body.admin-body::after {
     flex: 1;
     min-width: 0;
     padding: 28px 30px;
-    max-width: 1200px;
+    animation: adminFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes adminFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-content .profile-container {
+    margin: 0 auto;
 }
 
 .admin-content h1 {
@@ -363,18 +378,25 @@ body.admin-body::after {
     margin-bottom: 20px;
 }
 
-.admin-btn {
+.admin-btn,
+.admin-btn-secondary {
     padding: 10px 16px;
     border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.admin-btn {
     border: none;
     background: var(--accent-purple);
     color: #fff;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 0.9rem;
-    font-family: inherit;
-    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 /* #5: Hover + active feedback cho nút chính */
@@ -385,6 +407,25 @@ body.admin-body::after {
 }
 
 .admin-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.admin-btn-secondary {
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+}
+
+.admin-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.admin-btn-secondary:active {
     transform: translateY(0);
     box-shadow: none;
 }
@@ -527,6 +568,68 @@ body.admin-body::after {
 .admin-search-bar input:focus {
     border-color: var(--accent-purple);
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.admin-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-filter-field label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.admin-filter-field input,
+.admin-filter-field select {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.admin-filter-field input:focus,
+.admin-filter-field select:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.admin-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-filter-actions .admin-btn,
+.admin-filter-actions .admin-btn-secondary {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    height: 38px;
+    box-sizing: border-box;
+}
+
+.admin-cell-truncate {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .admin-detail-card {
@@ -783,5 +886,11 @@ body.admin-body::after {
 
     .admin-avatar-dropdown {
         width: min(240px, calc(100vw - 48px));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-content {
+        animation: none;
     }
 }
