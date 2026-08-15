@@ -26,17 +26,32 @@
             <dt>Username</dt><dd><%= HtmlUtils.escape(account.getUsername()) %></dd>
             <dt>Email</dt><dd><%= HtmlUtils.escape(account.getEmail()) %></dd>
             <dt>Tên hiển thị</dt><dd><%= HtmlUtils.escape(account.getDisplayName()) %></dd>
-            <dt>Vai trò</dt><dd><%= HtmlUtils.escape(account.getRole()) %></dd>
+            <%
+                String roleText = account.getRole();
+                if ("ADMIN".equalsIgnoreCase(roleText)) roleText = "Quản trị viên";
+                else if ("USER".equalsIgnoreCase(roleText)) roleText = "Người dùng";
+            %>
+            <dt>Vai trò</dt><dd><%= HtmlUtils.escape(roleText) %></dd>
             <dt>Trạng thái</dt>
             <%
                 String st = account.getStatus();
                 String bClass = "admin-badge-inactive";
-                if (AccountStatus.ACTIVE.equals(st)) bClass = "admin-badge-active";
-                else if (AccountStatus.BANNED.equals(st)) bClass = "admin-badge-banned";
-                else if (AccountStatus.SUSPENDED.equals(st)) bClass = "admin-badge-suspended";
-                else if (AccountStatus.DELETED.equals(st)) bClass = "admin-badge-deleted";
+                String statusText = st;
+                if (AccountStatus.ACTIVE.equals(st)) {
+                    bClass = "admin-badge-active";
+                    statusText = "Hoạt động";
+                } else if (AccountStatus.BANNED.equals(st)) {
+                    bClass = "admin-badge-banned";
+                    statusText = "Bị cấm";
+                } else if (AccountStatus.SUSPENDED.equals(st)) {
+                    bClass = "admin-badge-suspended";
+                    statusText = "Tạm khóa";
+                } else if (AccountStatus.DELETED.equals(st)) {
+                    bClass = "admin-badge-deleted";
+                    statusText = "Đã xóa";
+                }
             %>
-            <dd class="<%= bClass %>"><%= st %></dd>
+            <dd class="<%= bClass %>"><%= statusText %></dd>
             <dt>Ngày tạo</dt><dd><%= account.getCreatedAt() != null ? account.getCreatedAt().toString() : "-" %></dd>
             <dt>Cập nhật gần nhất</dt><dd><%= account.getUpdatedAt() != null ? account.getUpdatedAt().toString() : "-" %></dd>
         </dl>

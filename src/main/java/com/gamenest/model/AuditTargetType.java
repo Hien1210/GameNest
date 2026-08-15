@@ -9,6 +9,10 @@ public final class AuditTargetType {
 
     public static final String ACCOUNT = "ACCOUNT";
     public static final String GAME = "GAME";
+    public static final String REPORT = "REPORT";
+    public static final String SETTING = "SETTING";
+    public static final String QUESTION = "QUESTION";
+    public static final String ANSWER = "ANSWER";
 
     private AuditTargetType() {
     }

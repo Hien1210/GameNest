@@ -3,12 +3,12 @@
 <%@ page import="com.gamenest.model.Game" %>
 <%@ page import="com.gamenest.model.GameStatus" %>
 <%@ page import="com.gamenest.util.HtmlUtils" %>
-<% request.setAttribute("pageTitle", "Quản lý Games"); %>
+<% request.setAttribute("pageTitle", "Quản lý trò chơi"); %>
 <%@ include file="/WEB-INF/admin/layout/header.jsp" %>
 
 <div class="admin-page-header">
-    <h1>Quản lý Games</h1>
-    <a class="admin-btn" href="${pageContext.request.contextPath}/admin/games/new">+ Thêm Game</a>
+    <h1>Quản lý trò chơi</h1>
+    <a class="admin-btn" href="${pageContext.request.contextPath}/admin/games/new">+ Thêm trò chơi</a>
 </div>
 
 <% if (request.getAttribute("error") != null) { %>
@@ -23,7 +23,7 @@
     <thead>
         <tr>
             <th>ID</th>
-            <th>Tên game</th>
+            <th>Tên trò chơi</th>
             <th>Trạng thái</th>
             <th>Phát hành</th>
             <th>Hành động</th>
@@ -31,24 +31,26 @@
     </thead>
     <tbody>
     <% if (games == null || games.isEmpty()) { %>
-        <tr><td colspan="5">Chưa có game nào.</td></tr>
+        <tr><td colspan="5">Chưa có trò chơi nào.</td></tr>
     <% } else {
-        for (Game g : games) { %>
+        for (Game g : games) {
+            boolean isActive = GameStatus.ACTIVE.equals(g.getStatus());
+        %>
         <tr>
             <td><%= g.getGameId() %></td>
             <td><%= HtmlUtils.escape(g.getName()) %></td>
-            <td class="<%= GameStatus.ACTIVE.equals(g.getStatus()) ? "admin-badge-active" : "admin-badge-inactive" %>"><%= g.getStatus() %></td>
+            <td class="<%= isActive ? "admin-badge-active" : "admin-badge-inactive" %>"><%= isActive ? "Hoạt động" : "Tạm ẩn" %></td>
             <td><%= g.getReleaseDate() != null ? g.getReleaseDate().toString() : "-" %></td>
             <td class="admin-actions">
                 <a class="btn-edit" href="${pageContext.request.contextPath}/admin/games/edit?id=<%= g.getGameId() %>">Sửa</a>
                 <form action="${pageContext.request.contextPath}/admin/games/status" method="post">
                     <input type="hidden" name="id" value="<%= g.getGameId() %>">
-                    <% if (GameStatus.ACTIVE.equals(g.getStatus())) { %>
+                    <% if (isActive) { %>
                         <input type="hidden" name="action" value="deactivate">
-                        <button type="submit" class="btn-danger">Deactivate</button>
+                        <button type="submit" class="btn-danger">Tạm ẩn</button>
                     <% } else { %>
                         <input type="hidden" name="action" value="activate">
-                        <button type="submit" class="btn-success">Activate</button>
+                        <button type="submit" class="btn-success">Kích hoạt</button>
                     <% } %>
                 </form>
             </td>

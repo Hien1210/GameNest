@@ -24,7 +24,8 @@ import java.io.IOException;
         "/questions/new",
         "/questions/edit",
         "/questions/delete",
-        "/answers/*"
+        "/answers/*",
+        "/reports/create"
 })
 public class AuthenticationFilter implements Filter {
 

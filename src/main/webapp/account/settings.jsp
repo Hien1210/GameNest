@@ -13,13 +13,19 @@
     String emailError = (String) request.getAttribute("emailError");
     String emailInfo = (String) request.getAttribute("emailInfo");
     String pendingNewEmail = (String) request.getAttribute("pendingNewEmail");
-    boolean isAdmin = AccountRole.ADMIN.equals(session.getAttribute("role"));
+    String sessionRole = (String) session.getAttribute("role");
+    boolean isAdmin = AccountRole.ADMIN.equals(sessionRole);
+    boolean isModerator = AccountRole.MODERATOR.equals(sessionRole);
     boolean emailChanged = request.getParameter("emailChanged") != null;
 %>
 <% if (isAdmin) {
     request.setAttribute("pageTitle", "Cài đặt tài khoản");
 %>
 <%@ include file="/WEB-INF/admin/layout/header.jsp" %>
+<% } else if (isModerator) {
+    request.setAttribute("pageTitle", "Cài đặt tài khoản");
+%>
+<%@ include file="/WEB-INF/moderator/layout/header.jsp" %>
 <% } else { %>
 <!DOCTYPE html>
 <html lang="vi">
@@ -165,6 +171,8 @@ function toggleVisibility(inputId, iconEl) {
 
 <% if (isAdmin) { %>
 <%@ include file="/WEB-INF/admin/layout/footer.jsp" %>
+<% } else if (isModerator) { %>
+<%@ include file="/WEB-INF/moderator/layout/footer.jsp" %>
 <% } else { %>
 </body>
 </html>

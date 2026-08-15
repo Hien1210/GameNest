@@ -48,6 +48,18 @@
         <% if (question.getUpdatedAt() != null) { %> · đã sửa <%= question.getUpdatedAt() %><% } %>
     </div>
 
+    <%
+        boolean isLoggedInMeta = Boolean.TRUE.equals(request.getAttribute("isLoggedIn"));
+        boolean isOwnerMeta = Boolean.TRUE.equals(request.getAttribute("isOwner"));
+    %>
+    <% if (isLoggedInMeta && !isOwnerMeta) { %>
+        <p style="margin-top: -8px;">
+            <a href="${pageContext.request.contextPath}/reports/create?targetType=QUESTION&targetId=<%= question.getQuestionId() %>" style="font-size: 0.8rem; color: var(--text-secondary);">Báo cáo câu hỏi</a>
+            ·
+            <a href="${pageContext.request.contextPath}/reports/create?targetType=ACCOUNT&targetId=<%= question.getAccountId() %>" style="font-size: 0.8rem; color: var(--text-secondary);">Báo cáo người dùng</a>
+        </p>
+    <% } %>
+
     <div class="q-content"><%= HtmlUtils.escape(question.getContent()) %></div>
 
     <%
@@ -105,6 +117,10 @@
                         <input type="hidden" name="action" value="<%= ans.isAccepted() ? "unaccept" : "accept" %>">
                         <button type="submit"><%= ans.isAccepted() ? "Bỏ chọn" : "Chọn là hay nhất" %></button>
                     </form>
+                <% }
+                if (isLoggedIn && !isAnswerOwner) { %>
+                    <a href="${pageContext.request.contextPath}/reports/create?targetType=ANSWER&targetId=<%= ans.getAnswerId() %>" style="font-size: 0.8rem;">Báo cáo</a>
+                    <a href="${pageContext.request.contextPath}/reports/create?targetType=ACCOUNT&targetId=<%= ans.getAccountId() %>" style="font-size: 0.8rem;">Báo cáo người dùng</a>
                 <% } %>
                 </span>
             </div>

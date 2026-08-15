@@ -56,9 +56,14 @@ public class LoginServlet extends HttpServlet {
             session.setAttribute("role", account.getRole());
             session.setAttribute("avatarUrl", account.getAvatarUrl());
 
-            String destination = AccountRole.ADMIN.equals(account.getRole())
-                    ? "/admin/dashboard"
-                    : "/account/home.jsp";
+            String destination;
+            if (AccountRole.ADMIN.equals(account.getRole())) {
+                destination = "/admin/dashboard";
+            } else if (AccountRole.MODERATOR.equals(account.getRole())) {
+                destination = "/moderator/dashboard";
+            } else {
+                destination = "/account/home.jsp";
+            }
             response.sendRedirect(request.getContextPath() + destination);
 
         } catch (AuthenticationException | AccountStatusException e) {

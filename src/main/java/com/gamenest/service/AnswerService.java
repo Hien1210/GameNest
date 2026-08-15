@@ -19,6 +19,7 @@ import java.util.List;
 public class AnswerService {
 
     private static final int CONTENT_MAX_LENGTH = 10000;
+    private static final int MODERATION_PAGE_SIZE = 20;
 
     private final AnswerDAO answerDAO;
     private final QuestionDAO questionDAO;
@@ -153,6 +154,65 @@ public class AnswerService {
         try (Connection conn = DBConnection.getConnection()) {
             answerDAO.setAccepted(conn, answerId, false);
         }
+    }
+
+    // ---- Moderation (any status, any question/game) ----
+
+    public List<Answer> searchForModeration(String status, Integer questionId, Integer gameId,
+                                             String authorUsername, String searchText, int page) throws SQLException {
+        int offset = (clampPage(page) - 1) * MODERATION_PAGE_SIZE;
+        return answerDAO.searchForModeration(blankToNull(status), questionId, gameId, blankToNull(authorUsername),
+                blankToNull(searchText), offset, MODERATION_PAGE_SIZE);
+    }
+
+    public int countForModeration(String status, Integer questionId, Integer gameId, String authorUsername,
+                                   String searchText) throws SQLException {
+        return answerDAO.countForModeration(blankToNull(status), questionId, gameId, blankToNull(authorUsername),
+                blankToNull(searchText));
+    }
+
+    public int getModerationPageSize() {
+        return MODERATION_PAGE_SIZE;
+    }
+
+    /**
+     * Moderator status transition — ACTIVE/HIDDEN only, matching the real
+     * CK_Answers_status values (no LOCKED for Answers, unlike Questions).
+     * Deliberately does not accept DELETED: that status carries its own
+     * is_deleted/deleted_at/deleted_by bookkeeping, owned exclusively by
+     * {@link #softDeleteAnswer} (owner-or-admin today) — out of scope for
+     * this task. A currently soft-deleted answer is rejected too: setting
+     * status back to ACTIVE/HIDDEN via this path would leave is_deleted=1
+     * alongside a non-DELETED status, an inconsistent state.
+     */
+    public void changeStatusForModeration(int answerId, String newStatus)
+            throws AnswerNotFoundException, ValidationException, SQLException {
+
+        if (!AnswerStatus.ACTIVE.equals(newStatus) && !AnswerStatus.HIDDEN.equals(newStatus)) {
+            throw new ValidationException("Trạng thái không hợp lệ.");
+        }
+
+        Answer current = getAnswer(answerId);
+        if (current.isDeleted()) {
+            throw new ValidationException("Không thể thay đổi trạng thái của câu trả lời đã bị xóa.");
+        }
+
+        int updated = answerDAO.updateStatus(answerId, newStatus);
+        if (updated == 0) {
+            throw new AnswerNotFoundException("Câu trả lời không tồn tại.");
+        }
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private int clampPage(int page) {
+        return Math.max(page, 1);
     }
 
     /**

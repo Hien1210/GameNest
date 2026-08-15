@@ -10,13 +10,19 @@
     // no shared "logged-in user" layout exists yet in this project.
     Account account = (Account) request.getAttribute("account");
     String error = (String) request.getAttribute("error");
-    boolean isAdmin = AccountRole.ADMIN.equals(session.getAttribute("role"));
+    String sessionRole = (String) session.getAttribute("role");
+    boolean isAdmin = AccountRole.ADMIN.equals(sessionRole);
+    boolean isModerator = AccountRole.MODERATOR.equals(sessionRole);
     boolean updated = request.getParameter("updated") != null;
 %>
 <% if (isAdmin) {
     request.setAttribute("pageTitle", "Hồ sơ cá nhân");
 %>
 <%@ include file="/WEB-INF/admin/layout/header.jsp" %>
+<% } else if (isModerator) {
+    request.setAttribute("pageTitle", "Hồ sơ cá nhân");
+%>
+<%@ include file="/WEB-INF/moderator/layout/header.jsp" %>
 <% } else { %>
 <!DOCTYPE html>
 <html lang="vi">
@@ -210,6 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <% if (isAdmin) { %>
 <%@ include file="/WEB-INF/admin/layout/footer.jsp" %>
+<% } else if (isModerator) { %>
+<%@ include file="/WEB-INF/moderator/layout/footer.jsp" %>
 <% } else { %>
 </body>
 </html>

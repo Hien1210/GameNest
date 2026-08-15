@@ -35,32 +35,32 @@
 %>
 <form class="admin-filter-bar" action="${pageContext.request.contextPath}/admin/audit-logs" method="get">
     <div class="admin-filter-field">
-        <label for="module">Module</label>
+        <label for="module">Phân hệ</label>
         <select id="module" name="module">
             <option value="">Tất cả</option>
-            <option value="<%= AuditModule.ACCOUNTS %>" <%= AuditModule.ACCOUNTS.equals(fModule) ? "selected" : "" %>>ACCOUNTS</option>
-            <option value="<%= AuditModule.GAMES %>" <%= AuditModule.GAMES.equals(fModule) ? "selected" : "" %>>GAMES</option>
+            <option value="<%= AuditModule.ACCOUNTS %>" <%= AuditModule.ACCOUNTS.equals(fModule) ? "selected" : "" %>>Tài khoản</option>
+            <option value="<%= AuditModule.GAMES %>" <%= AuditModule.GAMES.equals(fModule) ? "selected" : "" %>>Trò chơi</option>
         </select>
     </div>
     <div class="admin-filter-field">
-        <label for="action">Action</label>
+        <label for="action">Hành động</label>
         <select id="action" name="action">
             <option value="">Tất cả</option>
-            <option value="<%= AuditAction.CREATE %>" <%= AuditAction.CREATE.equals(fAction) ? "selected" : "" %>>CREATE</option>
-            <option value="<%= AuditAction.UPDATE %>" <%= AuditAction.UPDATE.equals(fAction) ? "selected" : "" %>>UPDATE</option>
-            <option value="<%= AuditAction.STATUS_CHANGE %>" <%= AuditAction.STATUS_CHANGE.equals(fAction) ? "selected" : "" %>>STATUS_CHANGE</option>
+            <option value="<%= AuditAction.CREATE %>" <%= AuditAction.CREATE.equals(fAction) ? "selected" : "" %>>Tạo mới</option>
+            <option value="<%= AuditAction.UPDATE %>" <%= AuditAction.UPDATE.equals(fAction) ? "selected" : "" %>>Cập nhật</option>
+            <option value="<%= AuditAction.STATUS_CHANGE %>" <%= AuditAction.STATUS_CHANGE.equals(fAction) ? "selected" : "" %>>Đổi trạng thái</option>
         </select>
     </div>
     <div class="admin-filter-field">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" value="<%= HtmlUtils.escape(fUsername) %>" placeholder="Actor username">
+        <label for="username">Tên tài khoản</label>
+        <input type="text" id="username" name="username" value="<%= HtmlUtils.escape(fUsername) %>" placeholder="Tên người thực hiện">
     </div>
     <div class="admin-filter-field">
-        <label for="targetType">Target Type</label>
+        <label for="targetType">Loại mục tiêu</label>
         <select id="targetType" name="targetType">
             <option value="">Tất cả</option>
-            <option value="<%= AuditTargetType.ACCOUNT %>" <%= AuditTargetType.ACCOUNT.equals(fTargetType) ? "selected" : "" %>>ACCOUNT</option>
-            <option value="<%= AuditTargetType.GAME %>" <%= AuditTargetType.GAME.equals(fTargetType) ? "selected" : "" %>>GAME</option>
+            <option value="<%= AuditTargetType.ACCOUNT %>" <%= AuditTargetType.ACCOUNT.equals(fTargetType) ? "selected" : "" %>>Tài khoản</option>
+            <option value="<%= AuditTargetType.GAME %>" <%= AuditTargetType.GAME.equals(fTargetType) ? "selected" : "" %>>Trò chơi</option>
         </select>
     </div>
     <div class="admin-filter-field">
@@ -93,14 +93,14 @@
     <thead>
         <tr>
             <th>Thời gian</th>
-            <th>Actor</th>
-            <th>Role</th>
-            <th>Module</th>
-            <th>Action</th>
-            <th>Target</th>
-            <th>Description</th>
+            <th>Người thực hiện</th>
+            <th>Vai trò</th>
+            <th>Phân hệ</th>
+            <th>Hành động</th>
+            <th>Mục tiêu</th>
+            <th>Mô tả</th>
             <th>IP</th>
-            <th>User-Agent</th>
+            <th>Trình duyệt</th>
         </tr>
     </thead>
     <tbody>
@@ -108,16 +108,33 @@
         <tr><td colspan="9">Không có nhật ký nào phù hợp.</td></tr>
     <% } else {
         for (AuditLog log : logs) {
-            String target = log.getTargetType() != null
-                    ? HtmlUtils.escape(log.getTargetType()) + (log.getTargetId() != null ? " #" + log.getTargetId() : "")
+            String roleText = log.getRoleName();
+            if ("ADMIN".equalsIgnoreCase(roleText)) roleText = "Quản trị viên";
+            else if ("USER".equalsIgnoreCase(roleText)) roleText = "Người dùng";
+
+            String moduleText = log.getModule();
+            if (AuditModule.ACCOUNTS.equals(moduleText)) moduleText = "Tài khoản";
+            else if (AuditModule.GAMES.equals(moduleText)) moduleText = "Trò chơi";
+
+            String actionText = log.getAction();
+            if (AuditAction.CREATE.equals(actionText)) actionText = "Tạo mới";
+            else if (AuditAction.UPDATE.equals(actionText)) actionText = "Cập nhật";
+            else if (AuditAction.STATUS_CHANGE.equals(actionText)) actionText = "Đổi trạng thái";
+
+            String targetTypeFormatted = log.getTargetType();
+            if (AuditTargetType.ACCOUNT.equals(targetTypeFormatted)) targetTypeFormatted = "Tài khoản";
+            else if (AuditTargetType.GAME.equals(targetTypeFormatted)) targetTypeFormatted = "Trò chơi";
+
+            String target = targetTypeFormatted != null
+                    ? HtmlUtils.escape(targetTypeFormatted) + (log.getTargetId() != null ? " #" + log.getTargetId() : "")
                     : "-";
     %>
         <tr>
             <td><%= log.getCreatedAt() != null ? log.getCreatedAt().format(fmt) : "-" %></td>
             <td><%= HtmlUtils.escape(log.getUsername()) %></td>
-            <td><%= HtmlUtils.escape(log.getRoleName()) %></td>
-            <td><%= HtmlUtils.escape(log.getModule()) %></td>
-            <td><%= HtmlUtils.escape(log.getAction()) %></td>
+            <td><%= HtmlUtils.escape(roleText) %></td>
+            <td><%= HtmlUtils.escape(moduleText) %></td>
+            <td><%= HtmlUtils.escape(actionText) %></td>
             <td><%= target %></td>
             <td><%= HtmlUtils.escape(log.getDescription()) %></td>
             <td><%= log.getIpAddress() != null ? HtmlUtils.escape(log.getIpAddress()) : "-" %></td>

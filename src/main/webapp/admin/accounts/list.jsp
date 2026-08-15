@@ -47,16 +47,31 @@
             <td><%= a.getAccountId() %></td>
             <td><%= HtmlUtils.escape(a.getUsername()) %></td>
             <td><%= HtmlUtils.escape(a.getEmail()) %></td>
-            <td><%= HtmlUtils.escape(a.getRole()) %></td>
+            <%
+                String roleText = a.getRole();
+                if ("ADMIN".equalsIgnoreCase(roleText)) roleText = "Quản trị viên";
+                else if ("USER".equalsIgnoreCase(roleText)) roleText = "Người dùng";
+            %>
+            <td><%= HtmlUtils.escape(roleText) %></td>
             <%
                 String st = a.getStatus();
                 String bClass = "admin-badge-inactive";
-                if (AccountStatus.ACTIVE.equals(st)) bClass = "admin-badge-active";
-                else if (AccountStatus.BANNED.equals(st)) bClass = "admin-badge-banned";
-                else if (AccountStatus.SUSPENDED.equals(st)) bClass = "admin-badge-suspended";
-                else if (AccountStatus.DELETED.equals(st)) bClass = "admin-badge-deleted";
+                String statusText = st;
+                if (AccountStatus.ACTIVE.equals(st)) {
+                    bClass = "admin-badge-active";
+                    statusText = "Hoạt động";
+                } else if (AccountStatus.BANNED.equals(st)) {
+                    bClass = "admin-badge-banned";
+                    statusText = "Bị cấm";
+                } else if (AccountStatus.SUSPENDED.equals(st)) {
+                    bClass = "admin-badge-suspended";
+                    statusText = "Tạm khóa";
+                } else if (AccountStatus.DELETED.equals(st)) {
+                    bClass = "admin-badge-deleted";
+                    statusText = "Đã xóa";
+                }
             %>
-            <td class="<%= bClass %>"><%= st %></td>
+            <td class="<%= bClass %>"><%= statusText %></td>
             <td><%= a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate().toString() : "-" %></td>
             <td class="admin-actions">
                 <a class="btn-edit" href="${pageContext.request.contextPath}/admin/accounts/detail?id=<%= a.getAccountId() %>">Chi tiết</a>

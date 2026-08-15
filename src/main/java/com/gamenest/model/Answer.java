@@ -16,9 +16,11 @@ public class Answer {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Populated only by DAO queries that join Accounts for display —
-    // not a persisted column on this entity.
+    // Populated only by DAO queries that join Accounts/Questions/Games for
+    // display — not persisted columns on this entity.
     private String authorUsername;
+    private String questionTitle;
+    private String gameName;
 
     public Answer() {
     }
@@ -117,5 +119,21 @@ public class Answer {
 
     public void setAuthorUsername(String authorUsername) {
         this.authorUsername = authorUsername;
+    }
+
+    public String getQuestionTitle() {
+        return questionTitle;
+    }
+
+    public void setQuestionTitle(String questionTitle) {
+        this.questionTitle = questionTitle;
+    }
+
+    public String getGameName() {
+        return gameName;
+    }
+
+    public void setGameName(String gameName) {
+        this.gameName = gameName;
     }
 }

@@ -27,6 +27,8 @@
     boolean navAccounts = servletPath.startsWith("/admin/accounts");
     boolean navGames = servletPath.startsWith("/admin/games");
     boolean navAuditLogs = servletPath.startsWith("/admin/audit-logs");
+    boolean navReports = servletPath.startsWith("/admin/reports");
+    boolean navSettings = servletPath.equals("/admin/settings");
 %>
 <!DOCTYPE html>
 <html lang="vi">
@@ -106,30 +108,28 @@
         <nav class="admin-nav">
             <a class="admin-nav-item<%= navDashboard ? " active" : "" %>" href="<%= ctx %>/admin/dashboard">
                 <span class="material-symbols-outlined">dashboard</span>
-                <span>Dashboard</span>
+                <span>Tổng quan</span>
             </a>
             <a class="admin-nav-item<%= navAccounts ? " active" : "" %>" href="<%= ctx %>/admin/accounts">
                 <span class="material-symbols-outlined">group</span>
-                <span>Accounts</span>
+                <span>Tài khoản</span>
             </a>
             <a class="admin-nav-item<%= navGames ? " active" : "" %>" href="<%= ctx %>/admin/games">
                 <span class="material-symbols-outlined">sports_esports</span>
-                <span>Games</span>
+                <span>Trò chơi</span>
+            </a>
+            <a class="admin-nav-item<%= navReports ? " active" : "" %>" href="<%= ctx %>/admin/reports">
+                <span class="material-symbols-outlined">flag</span>
+                <span>Báo cáo vi phạm</span>
             </a>
             <a class="admin-nav-item<%= navAuditLogs ? " active" : "" %>" href="<%= ctx %>/admin/audit-logs">
                 <span class="material-symbols-outlined">history</span>
-                <span>Audit Log</span>
+                <span>Nhật ký hệ thống</span>
             </a>
-            <span class="admin-nav-item disabled" title="Chưa triển khai">
-                <span class="material-symbols-outlined">quiz</span>
-                <span>Questions</span>
-                <span class="admin-soon">Sắp có</span>
-            </span>
-            <span class="admin-nav-item disabled" title="Chưa triển khai">
-                <span class="material-symbols-outlined">forum</span>
-                <span>Answers</span>
-                <span class="admin-soon">Sắp có</span>
-            </span>
+            <a class="admin-nav-item<%= navSettings ? " active" : "" %>" href="<%= ctx %>/admin/settings">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Cấu hình hệ thống</span>
+            </a>
         </nav>
 
         <div class="admin-nav-footer">

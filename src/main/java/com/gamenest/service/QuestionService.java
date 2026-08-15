@@ -14,6 +14,7 @@ import java.util.List;
 public class QuestionService {
 
     private static final int PAGE_SIZE = 15;
+    private static final int MODERATION_PAGE_SIZE = 20;
     private static final int TITLE_MAX_LENGTH = 250;
     private static final int CONTENT_MAX_LENGTH = 10000;
 
@@ -140,6 +141,62 @@ public class QuestionService {
         if (question.getAccountId() != requesterAccountId) {
             throw new ForbiddenException("Bạn không có quyền thực hiện thao tác này.");
         }
+    }
+
+    // ---- Moderation (any status, any game) ----
+
+    public List<Question> searchForModeration(String status, Integer gameId, String authorUsername,
+                                               String searchText, int page) throws SQLException {
+        int offset = (clampPage(page) - 1) * MODERATION_PAGE_SIZE;
+        return questionDAO.searchForModeration(blankToNull(status), gameId, blankToNull(authorUsername),
+                blankToNull(searchText), offset, MODERATION_PAGE_SIZE);
+    }
+
+    public int countForModeration(String status, Integer gameId, String authorUsername, String searchText)
+            throws SQLException {
+        return questionDAO.countForModeration(blankToNull(status), gameId, blankToNull(authorUsername),
+                blankToNull(searchText));
+    }
+
+    public int getModerationPageSize() {
+        return MODERATION_PAGE_SIZE;
+    }
+
+    /**
+     * Moderator status transition — ACTIVE/HIDDEN/LOCKED only. Deliberately
+     * does not accept DELETED: that status carries its own
+     * is_deleted/deleted_at/deleted_by bookkeeping, owned exclusively by
+     * {@link #softDeleteQuestion} (owner-or-admin today) — out of scope for
+     * this task, which only covers status moderation, not deletion
+     * authorization. A currently soft-deleted question is rejected too:
+     * setting status back to ACTIVE/HIDDEN/LOCKED via this path would leave
+     * is_deleted=1 alongside a non-DELETED status, an inconsistent state.
+     */
+    public void changeStatusForModeration(int questionId, String newStatus)
+            throws QuestionNotFoundException, ValidationException, SQLException {
+
+        if (!QuestionStatus.ACTIVE.equals(newStatus) && !QuestionStatus.HIDDEN.equals(newStatus)
+                && !QuestionStatus.LOCKED.equals(newStatus)) {
+            throw new ValidationException("Trạng thái không hợp lệ.");
+        }
+
+        Question current = getQuestion(questionId);
+        if (current.isDeleted()) {
+            throw new ValidationException("Không thể thay đổi trạng thái của câu hỏi đã bị xóa.");
+        }
+
+        int updated = questionDAO.updateStatus(questionId, newStatus);
+        if (updated == 0) {
+            throw new QuestionNotFoundException("Câu hỏi không tồn tại.");
+        }
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private int clampPage(int page) {

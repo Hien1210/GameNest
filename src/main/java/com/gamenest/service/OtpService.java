@@ -4,6 +4,7 @@ import com.gamenest.dao.OtpDAO;
 import com.gamenest.exception.OtpException;
 import com.gamenest.model.OtpPurpose;
 import com.gamenest.model.OtpRecord;
+import com.gamenest.model.SystemSettingKey;
 import com.gamenest.util.MailSender;
 import jakarta.mail.MessagingException;
 
@@ -18,20 +19,27 @@ import java.util.Optional;
 public class OtpService {
 
     private static final int OTP_LENGTH_DIGITS = 6;
-    private static final Duration OTP_TTL = Duration.ofMinutes(5);
-    private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
-    private static final int MAX_ATTEMPTS = 5;
+
+    // Fallback values used if System Settings is unreadable (missing row,
+    // DB error) — identical to the values this service hard-coded before
+    // System Settings existed, so a Settings problem can never break OTP.
+    private static final int DEFAULT_OTP_TTL_MINUTES = 5;
+    private static final int DEFAULT_RESEND_COOLDOWN_SECONDS = 60;
+    private static final int DEFAULT_MAX_ATTEMPTS = 5;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final OtpDAO otpDAO;
+    private final SystemSettingsService systemSettingsService;
 
     public OtpService() {
         this.otpDAO = new OtpDAO();
+        this.systemSettingsService = new SystemSettingsService();
     }
 
     public OtpService(OtpDAO otpDAO) {
         this.otpDAO = otpDAO;
+        this.systemSettingsService = new SystemSettingsService();
     }
 
     /**
@@ -42,22 +50,27 @@ public class OtpService {
     public void generateAndSend(String email, String purpose)
             throws OtpException, SQLException, MessagingException {
 
+        Duration resendCooldown = Duration.ofSeconds(systemSettingsService.getIntSetting(
+                SystemSettingKey.OTP_RESEND_COOLDOWN_SECONDS, DEFAULT_RESEND_COOLDOWN_SECONDS));
+        Duration otpTtl = Duration.ofMinutes(systemSettingsService.getIntSetting(
+                SystemSettingKey.OTP_EXPIRATION_MINUTES, DEFAULT_OTP_TTL_MINUTES));
+
         Optional<OtpRecord> active = otpDAO.findLatestActive(email, purpose);
         if (active.isPresent()) {
             Duration since = Duration.between(active.get().getCreatedAt(), LocalDateTime.now());
-            if (since.compareTo(RESEND_COOLDOWN) < 0) {
-                long waitSeconds = RESEND_COOLDOWN.minus(since).toSeconds();
+            if (since.compareTo(resendCooldown) < 0) {
+                long waitSeconds = resendCooldown.minus(since).toSeconds();
                 throw new OtpException("Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu gửi lại OTP.");
             }
         }
 
         String code = generateCode();
         String hash = hash(code);
-        LocalDateTime expiresAt = LocalDateTime.now().plus(OTP_TTL);
+        LocalDateTime expiresAt = LocalDateTime.now().plus(otpTtl);
 
         otpDAO.insert(email, purpose, hash, expiresAt);
 
-        MailSender.send(email, emailSubject(purpose), emailBody(purpose, code));
+        MailSender.send(email, emailSubject(purpose), emailBody(purpose, code, otpTtl));
     }
 
     /**
@@ -70,10 +83,13 @@ public class OtpService {
             throw new OtpException("Vui lòng nhập mã OTP.");
         }
 
+        int maxAttempts = systemSettingsService.getIntSetting(
+                SystemSettingKey.OTP_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS);
+
         OtpRecord record = otpDAO.findLatestActive(email, purpose)
                 .orElseThrow(() -> new OtpException("Mã OTP không hợp lệ hoặc đã hết hạn."));
 
-        if (record.getAttemptCount() >= MAX_ATTEMPTS) {
+        if (record.getAttemptCount() >= maxAttempts) {
             throw new OtpException("Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu mã OTP mới.");
         }
 
@@ -114,7 +130,7 @@ public class OtpService {
         };
     }
 
-    private String emailBody(String purpose, String code) {
+    private String emailBody(String purpose, String code, Duration otpTtl) {
         String action = switch (purpose) {
             case OtpPurpose.REGISTER -> "hoàn tất đăng ký";
             case OtpPurpose.CHANGE_EMAIL -> "xác nhận đổi email";
@@ -122,7 +138,7 @@ public class OtpService {
         };
         return "<p>Mã OTP để " + action + " tài khoản GameNest của bạn là:</p>"
                 + "<h2>" + code + "</h2>"
-                + "<p>Mã có hiệu lực trong " + OTP_TTL.toMinutes() + " phút. "
+                + "<p>Mã có hiệu lực trong " + otpTtl.toMinutes() + " phút. "
                 + "Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.</p>";
     }
 }

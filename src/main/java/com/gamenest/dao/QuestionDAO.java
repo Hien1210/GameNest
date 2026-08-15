@@ -144,6 +144,90 @@ public class QuestionDAO {
         }
     }
 
+    /**
+     * Plain status change — deliberately separate from {@link #softDelete},
+     * which also owns is_deleted/deleted_at/deleted_by bookkeeping. Used by
+     * Questions Moderation for ACTIVE/HIDDEN/LOCKED transitions that don't
+     * touch those columns.
+     */
+    public int updateStatus(int questionId, String status) throws SQLException {
+        String sql = "UPDATE dbo.Questions SET status = ?, updated_at = SYSUTCDATETIME() WHERE question_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, questionId);
+            return ps.executeUpdate();
+        }
+    }
+
+    /**
+     * DB-side filtered + paginated listing across ALL games, for Moderator
+     * review — unlike {@link #listActiveByGame}, not scoped to one game or
+     * ACTIVE-only. Any filter left null/blank is simply omitted from the
+     * WHERE clause; all values are bound via PreparedStatement placeholders.
+     */
+    public List<Question> searchForModeration(String status, Integer gameId, String authorUsername,
+                                               String searchText, int offset, int limit) throws SQLException {
+        StringBuilder sql = new StringBuilder(DETAIL_SELECT).append("WHERE 1 = 1 ");
+        List<Object> params = new ArrayList<>();
+        appendModerationFilters(sql, params, status, gameId, authorUsername, searchText);
+        sql.append("ORDER BY q.created_at DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        params.add(offset);
+        params.add(limit);
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            bindParams(ps, params);
+            return mapList(ps);
+        }
+    }
+
+    public int countForModeration(String status, Integer gameId, String authorUsername, String searchText)
+            throws SQLException {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM dbo.Questions q "
+                + "JOIN dbo.Accounts a ON a.account_id = q.account_id "
+                + "JOIN dbo.Games g ON g.game_id = q.game_id WHERE 1 = 1 ");
+        List<Object> params = new ArrayList<>();
+        appendModerationFilters(sql, params, status, gameId, authorUsername, searchText);
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            bindParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    private void appendModerationFilters(StringBuilder sql, List<Object> params, String status, Integer gameId,
+                                          String authorUsername, String searchText) {
+        if (status != null && !status.isEmpty()) {
+            sql.append("AND q.status = ? ");
+            params.add(status);
+        }
+        if (gameId != null) {
+            sql.append("AND q.game_id = ? ");
+            params.add(gameId);
+        }
+        if (authorUsername != null && !authorUsername.isEmpty()) {
+            sql.append("AND a.username LIKE ? ESCAPE '\\' ");
+            params.add(likePattern(authorUsername));
+        }
+        if (searchText != null && !searchText.isEmpty()) {
+            sql.append("AND (q.title LIKE ? ESCAPE '\\' OR q.content LIKE ? ESCAPE '\\') ");
+            String pattern = likePattern(searchText);
+            params.add(pattern);
+            params.add(pattern);
+        }
+    }
+
+    private void bindParams(PreparedStatement ps, List<Object> params) throws SQLException {
+        for (int i = 0; i < params.size(); i++) {
+            ps.setObject(i + 1, params.get(i));
+        }
+    }
+
     private String likePattern(String query) {
         String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
         return "%" + escaped + "%";
