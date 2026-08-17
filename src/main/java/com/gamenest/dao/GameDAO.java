@@ -55,6 +55,21 @@ public class GameDAO {
         }
     }
 
+    /**
+     * All ACTIVE games, unpaginated — used to populate the "add a game"
+     * select on Account Profile (User Profile task). Distinct from
+     * {@link #findActive}, which is DB-side paginated for the public
+     * Games browse list.
+     */
+    public List<Game> findAllActive() throws SQLException {
+        String sql = "SELECT " + SELECT_COLUMNS + "FROM dbo.Games WHERE status = ? ORDER BY name";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, GameStatus.ACTIVE);
+            return mapList(ps);
+        }
+    }
+
     public List<Game> searchActiveByName(String query, int offset, int limit) throws SQLException {
         String sql = "SELECT " + SELECT_COLUMNS
                 + "FROM dbo.Games WHERE status = ? AND name LIKE ? ESCAPE '\\' "

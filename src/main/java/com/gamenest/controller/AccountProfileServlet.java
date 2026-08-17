@@ -3,7 +3,12 @@ package com.gamenest.controller;
 import com.gamenest.exception.AccountNotFoundException;
 import com.gamenest.exception.ValidationException;
 import com.gamenest.model.Account;
+import com.gamenest.model.AccountGame;
+import com.gamenest.model.AccountGameRelationshipType;
+import com.gamenest.model.Game;
+import com.gamenest.service.AccountGameService;
 import com.gamenest.service.AccountService;
+import com.gamenest.service.GameService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -16,6 +21,7 @@ import jakarta.servlet.http.Part;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,6 +42,8 @@ public class AccountProfileServlet extends HttpServlet {
     private static final String VIEW = "/account/profile.jsp";
 
     private final AccountService accountService = new AccountService();
+    private final AccountGameService accountGameService = new AccountGameService();
+    private final GameService gameService = new GameService();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -48,9 +56,15 @@ public class AccountProfileServlet extends HttpServlet {
         }
         int accountId = (int) session.getAttribute("accountId");
 
+        if (session.getAttribute("flashError") != null) {
+            request.setAttribute("error", session.getAttribute("flashError"));
+            session.removeAttribute("flashError");
+        }
+
         try {
             Account account = accountService.getOwnProfile(accountId);
             request.setAttribute("account", account);
+            loadGameLists(request, accountId);
             request.getRequestDispatcher(VIEW).forward(request, response);
 
         } catch (AccountNotFoundException e) {
@@ -61,6 +75,28 @@ public class AccountProfileServlet extends HttpServlet {
             LOGGER.log(Level.SEVERE, "Database error while loading profile", e);
             request.setAttribute("error", "Đã có lỗi xảy ra, vui lòng thử lại sau.");
             request.getRequestDispatcher(VIEW).forward(request, response);
+        }
+    }
+
+    /**
+     * Loads the Playing/Favorite game lists plus the full ACTIVE game
+     * catalog (for the "add a game" select). Failures here are logged and
+     * swallowed — a Games read problem must not block viewing the rest of
+     * the profile.
+     */
+    private void loadGameLists(HttpServletRequest request, int accountId) {
+        try {
+            List<AccountGame> playing = accountGameService.listByAccountAndType(
+                    accountId, AccountGameRelationshipType.PLAYING);
+            List<AccountGame> favorites = accountGameService.listByAccountAndType(
+                    accountId, AccountGameRelationshipType.FAVORITE);
+            List<Game> allActiveGames = gameService.listAllActiveGames();
+
+            request.setAttribute("playingGames", playing);
+            request.setAttribute("favoriteGames", favorites);
+            request.setAttribute("allActiveGames", allActiveGames);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error while loading account games", e);
         }
     }
 
@@ -120,6 +156,7 @@ public class AccountProfileServlet extends HttpServlet {
         } catch (AccountNotFoundException | SQLException ignored) {
             // Fall through with account == null; the JSP handles that case.
         }
+        loadGameLists(request, accountId);
         request.getRequestDispatcher(VIEW).forward(request, response);
     }
 }

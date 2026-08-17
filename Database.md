@@ -65,8 +65,19 @@ Ghi chú: `target_id`/`target_type` của `Reports` và `AuditLogs` là tham chi
 | 8 | `AuditLogs` | Nhật ký hành động quản trị/kiểm duyệt | `08` (+`09`,`10`,`12`,`13`) |
 | 9 | `Reports` | Báo cáo vi phạm (Account/Question/Answer) | `09` |
 | 10 | `SystemSettings` | Cấu hình hệ thống dạng key/value | `10` |
+| 11 | `AccountGames` | Quan hệ Account ↔ Game (yêu thích/đang chơi) | `14` |
+| 12 | `Notifications` | Thông báo (ANSWER_ACCEPTED/ANSWER_REPLY/REPORT_RESOLVED/REPORT_REJECTED/SYSTEM/FOLLOW/FRIEND_REQUEST/FRIEND_ACCEPTED/`TEAM_INVITE`) | `14` (+`16`,`17`,`19`) |
+| 13 | `AccountFollows` | Quan hệ Follow một chiều Account → Account (junction) | `16` |
+| 14 | `AccountFriendships` | Kết bạn hai chiều: request/accept workflow (state machine, không phải junction) | `17` |
+| 15 | `AccountBlocks` | Chặn một chiều Account → Account, nhưng có hiệu lực hạn chế hai chiều (junction) | `18` |
+| 16 | `Teams` | Phòng riêng cho Friends chơi cùng nhau — khác LFG (soft delete) | `19` |
+| 17 | `TeamMembers` | Thành viên Team, role OWNER/MEMBER (junction) | `19` |
+| 18 | `TeamInvitations` | Lời mời vào Team — request/accept workflow (state machine) | `19` |
+| 19 | `Conversations` | Chat — DIRECT hoặc TEAM, dùng chung 1 bảng | `20` |
+| 20 | `Messages` | Tin nhắn chat (soft delete) | `20` |
+| 21 | `ConversationMembers` | Thành viên 1 Conversation (junction) | `20` |
 
-> `LFGPosts`/`LFGMembers` là schema nền tảng dựng sẵn từ `01_core_schema.sql` theo CLAUDE.md mục 6 — **chưa có business logic/UI** (chưa xây tính năng LFG ở tầng ứng dụng), chỉ tồn tại ở tầng database.
+> `LFGPosts`/`LFGMembers` được tạo sẵn từ `01_core_schema.sql` theo CLAUDE.md mục 6; business logic/UI (Create/Join/Leave/Close/Delete LFG) đã được xây dựng ở tầng ứng dụng trong một task riêng sau đó — ghi chú cũ ở đây (giữ nguyên qua vài lần cập nhật trước) đã lỗi thời và được sửa lại tại đây.
 
 ---
 
@@ -343,8 +354,121 @@ Ghi chú: `target_id`/`target_type` của `Reports` và `AuditLogs` là tham chi
 | SystemSettings | ❌ Không | Chỉ `UPDATE value`, không xóa key |
 | OtpVerifications | ⚠️ Không có delete, chỉ `is_used`/hết hạn tự nhiên | — |
 | **LFGMembers** | ✅ **Có** (junction) | Rời nhóm = xóa dòng quan hệ thật |
+| **AccountGames** | ✅ **Có** (junction) | Bỏ yêu thích/ngừng chơi = xóa dòng quan hệ thật; `GRANT DELETE` cấp ở `db/15_account_games_delete_grant.sql` khi User Profile triển khai chức năng này |
+| Notifications | ⚠️ Chưa quyết định | Chưa có nghiệp vụ "xóa thông báo" — để ngỏ tới khi xây tính năng thật |
+| **AccountFollows** | ✅ **Có** (junction) | Unfollow = xóa dòng quan hệ thật; `GRANT DELETE` cấp ngay trong `db/16_account_follows.sql` |
+| AccountFriendships | ❌ Không | State machine (xem §5a) — mọi thay đổi quan hệ là `UPDATE status`, không có nghiệp vụ xóa dòng nào; **không** có `GRANT DELETE` cho bảng này |
+| **AccountBlocks** | ✅ **Có** (junction) | Unblock = xóa dòng quan hệ thật; `GRANT DELETE` cấp ngay trong `db/18_account_blocks.sql`. Xem §5b cho side effects của Block lên Follow/Friendship |
+| Teams | ❌ Không | Soft delete — `status = 'DELETED'` (Team là nội dung do User tạo, giống Questions/LFGPosts, CLAUDE.md mục 7.1). Xem §5c |
+| **TeamMembers** | ✅ **Có** (junction) | Leave/Remove Member = xóa dòng quan hệ thật; `GRANT DELETE` cấp ngay trong `db/19_teams.sql` |
+| TeamInvitations | ❌ Không | State machine giống AccountFriendships — mọi transition là `UPDATE status`; **không** có `GRANT DELETE` cho bảng này |
+| Conversations | ❌ Không | Không có nghiệp vụ xóa — tồn tại vĩnh viễn một khi được tạo. Xem §5d |
+| Messages | ❌ Không | Soft delete — `deleted_at` (nội dung do User tạo, CLAUDE.md mục 7.1). Xem §5d |
+| **ConversationMembers** | ✅ **Có** (junction) | Leave/Remove Member = xóa dòng quan hệ thật; `GRANT DELETE` cấp ngay trong `db/20_chat.sql`. Xem §5d |
 
-Đây là chính sách cốt lõi xuyên suốt toàn bộ dự án (CLAUDE.md mục 7) và được **enforce ở 2 lớp độc lập**: tầng ứng dụng (không DAO nào có method `DELETE FROM` ngoài `LFGMembers`) **và** tầng database (xem §8 — login ứng dụng bị `DENY DELETE` ở cấp schema).
+Đây là chính sách cốt lõi xuyên suốt toàn bộ dự án (CLAUDE.md mục 7) và được **enforce ở 2 lớp độc lập**: tầng ứng dụng (không DAO nào có method `DELETE FROM` ngoài `LFGMembers`/`AccountGames`/`AccountFollows`/`AccountBlocks`/`TeamMembers`/`ConversationMembers`) **và** tầng database (xem §8 — login ứng dụng bị `DENY DELETE` ở cấp schema, chỉ được `GRANT` riêng cho 6 bảng junction đó).
+
+### 5a. AccountFriendships — state machine, không phải junction table
+
+Khác với `AccountFollows`/`AccountGames`/`LFGMembers` (một dòng = một quan hệ đang có hiệu lực, xóa dòng = hủy quan hệ), `AccountFriendships` là **workflow state machine**: một dòng tồn tại xuyên suốt toàn bộ vòng đời của một cặp (requester, receiver), chỉ có `status` thay đổi qua UPDATE.
+
+Vòng đời:
+
+```text
+(gửi lời mời)
+     ↓
+  PENDING
+     ├── receiver Accept  → ACCEPTED
+     ├── receiver Reject  → REJECTED
+     └── requester Cancel → CANCELLED
+
+  ACCEPTED
+     └── requester HOẶC receiver Unfriend → UNFRIENDED
+```
+
+Không có `DELETED` cho Friendship (khác với Answers/Questions) — `REJECTED`/`CANCELLED`/`UNFRIENDED` đã là trạng thái kết thúc.
+
+**Re-friend & UNIQUE(requester_account_id, receiver_account_id):** UNIQUE là theo chiều (ordered pair). Gửi lại lời mời sau `REJECTED`/`CANCELLED`/`UNFRIENDED` **tái sử dụng row cũ** (UPDATE status → `PENDING`, reset `responded_at`, làm mới `created_at`) thay vì INSERT row mới — nếu không sẽ vi phạm UNIQUE. Hệ quả: lịch sử chi tiết của các lần reject/cancel/unfriend trước đó trên cùng một cặp không được giữ theo từng dòng riêng, chỉ trạng thái mới nhất được lưu (xem ghi chú đầy đủ trong `db/17_account_friendships.sql`).
+
+Chiều ngược lại (receiver gửi lại cho requester cũ) là một cặp khác về UNIQUE, nên không xung đột — nhưng Service (`AccountFriendService`) luôn kiểm tra **cả hai chiều** trước khi tạo/tái sử dụng PENDING, để không bao giờ tồn tại đồng thời `A→B = PENDING` và `B→A = PENDING`.
+
+### 5b. AccountBlocks — one-way row, two-sided restriction
+
+`AccountBlocks` lưu đúng 1 dòng theo chiều (`blocker_account_id` → `blocked_account_id`) khi A Block B — **không** tự động tạo dòng ngược (B → A). Nhưng mọi kiểm tra quyền tương tác xã hội (Follow, gửi Friend Request) đều coi **cả hai chiều** là bị chặn:
+
+```text
+isBlockedBetween(A, B) = exists(A→B) OR exists(B→A)
+```
+
+`AccountFollowService.follow` và `AccountFriendService.sendRequest` đều gọi `AccountBlockService.isBlockedBetween` trước khi tạo quan hệ mới — nếu true, thao tác bị từ chối cho **cả hai phía** (A không Follow được B, B cũng không Follow được A), và thông báo lỗi không tiết lộ ai là người Block ai.
+
+**Side effects khi Block (trong cùng 1 transaction với INSERT AccountBlocks — xem `db/18_account_blocks.sql`):**
+
+```text
+A Block B
+    ↓
+INSERT AccountBlocks (A → B)
+    ↓
+DELETE AccountFollows WHERE (A→B) OR (B→A)      -- xóa Follow cả 2 chiều
+    ↓
+AccountFriendships giữa A/B, nếu ACCEPTED → UPDATE status = UNFRIENDED
+AccountFriendships giữa A/B, nếu PENDING  → UPDATE status = CANCELLED
+    ↓
+COMMIT (toàn bộ, hoặc rollback toàn bộ nếu bất kỳ bước nào lỗi)
+```
+
+Không tạo Notification cho Block/Unblock. Unblock chỉ `DELETE` dòng `AccountBlocks` — **không** khôi phục Follow/Friendship đã bị dọn dẹp; đó là các quan hệ/lifecycle hoàn toàn mới nếu hai bên tương tác lại sau này.
+
+### 5c. Teams / TeamMembers / TeamInvitations — Private Friend Room, khác LFG
+
+`Teams` là không gian riêng cho Friends chơi cùng nhau — **khác** `LFGPosts`/`LFGMembers` (tìm người chơi công khai/người lạ). 3 bảng, 3 chính sách hard-delete khác nhau:
+
+- **Teams** — soft delete (`status` `ACTIVE`/`DELETED`), giống Questions/LFGPosts vì là nội dung do User tạo. `owner_account_id` là chủ sở hữu **hiện tại** (không chỉ người tạo) — được `UPDATE` cùng transaction với `TeamMembers.role` khi Transfer Ownership, nên 2 nguồn dữ liệu này luôn đồng bộ.
+- **TeamMembers** — junction table thuần (giống LFGMembers) — Leave/Remove Member = hard DELETE thật. `UNIQUE INDEX` lọc `WHERE role = 'OWNER'` đảm bảo **không bao giờ 2 OWNER** cho 1 team ở tầng database; vế "không bao giờ 0 OWNER" được đảm bảo ở tầng Service (Owner không thể Leave — phải Transfer Ownership hoặc Delete Team trước).
+- **TeamInvitations** — state machine giống AccountFriendships (`PENDING → ACCEPTED/REJECTED/CANCELLED`), không hard-delete. `UNIQUE(team_id, invitee_account_id)` — theo `invitee`, không theo `inviter`, vì Owner có thể đổi qua Transfer Ownership nhưng vẫn chỉ nên có 1 lời mời "có ý nghĩa" cho 1 người/1 team. Mời lại sau `REJECTED`/`CANCELLED` tái sử dụng row cũ (giống re-friend ở §5a), cập nhật lại `inviter_account_id`.
+
+**Friend requirement khi Invite:** Owner chỉ được mời người đang là Friend (`AccountFriendService.findActiveBetween` status `ACCEPTED`, tái sử dụng nguyên vẹn, không viết lại logic). **Block ưu tiên cao hơn:** nếu 2 người đang Block nhau (`AccountBlockService.isBlockedBetween`), không được mời dù có phải Friend hay không.
+
+**Friend/Block chỉ áp dụng lúc Invite, không retroactive:** Nếu A mời B lúc đang là Friend, B Accept thành Member, sau đó A/B Unfriend hoặc Block nhau — Team membership của B **không** tự động bị ảnh hưởng (không tự kick). Đây là quyết định thiết kế tường minh (task yêu cầu không tự suy diễn cascade ngoài scope), xem thêm trong Javadoc của `TeamService`.
+
+### 5d. Conversations / Messages / ConversationMembers — Chat Core Logic
+
+Một Conversation architecture DUY NHẤT cho cả DIRECT (giữa 2 Friend) và TEAM (mỗi Team ACTIVE có đúng 1 Team Conversation) — không tách `DirectMessages`/`TeamMessages` riêng.
+
+- **Conversations** — `type` (`DIRECT`/`TEAM`) dùng chung 1 bảng. `TEAM`: `team_id NOT NULL`, `direct_key NULL`; `DIRECT`: ngược lại — chặn cấu trúc bằng `CK_Conversations_type_consistency`. Mỗi cặp Account chỉ có tối đa 1 Direct Conversation nhờ `UNIQUE(direct_key)` — `direct_key` là canonical key `"min(accountA,accountB):max(accountA,accountB)"`, tính ở `ChatService` nên luôn giống nhau dù request đến từ chiều nào. Mỗi Team ACTIVE chỉ có tối đa 1 Team Conversation nhờ filtered unique index `UQ_Conversations_team ON (team_id) WHERE type='TEAM'` (cùng khuôn mẫu `UQ_TeamMembers_team_owner` ở §5c). Cả hai UNIQUE này là guard race-condition thật ở tầng DB, không chỉ SELECT-rồi-INSERT — 2 request tạo Direct/Team Conversation đồng thời chỉ 1 request thắng, request còn lại nhận `DuplicateConversationException` và tự fetch lại row đã thắng thay vì lỗi.
+- **Messages** — user-generated content, KHÔNG hard-delete (CLAUDE.md mục 7.1) — Delete Message là soft delete (`deleted_at`), lịch sử vẫn giữ nguyên, UI hiển thị "Tin nhắn đã được xóa." thay vì nội dung thật. `content NVARCHAR(2000)` — không có convention độ dài tin nhắn có sẵn trong project, chọn riêng cho Chat (xem `db/20_chat.sql`).
+- **ConversationMembers** — junction table thuần (giống TeamMembers) — Leave/Remove Member = hard DELETE thật, luôn đồng bộ với TeamMembers (xem tích hợp bên dưới). Cột `left_at` có trong schema nhưng không được ghi bởi code path nào trong phase này (Leave/Remove dùng hard-delete, không soft-leave).
+
+**Team + Chat tích hợp chặt (bổ sung *thuần additive* vào `TeamService`, không sửa method cũ):** Create Team giờ tạo `Teams + TeamMembers(OWNER) + Conversations(TEAM) + ConversationMembers(OWNER)` trong 1 transaction. Accept Invitation giờ tạo `TeamMembers + ConversationMembers` trong 1 transaction. Leave/Remove Member giờ xóa `TeamMembers + ConversationMembers` trong 1 transaction (best-effort với ConversationMembers nếu Team là dữ liệu cũ trước khi Chat tồn tại — xem Javadoc `TeamService#removeConversationMembershipIfPresent`). Transfer Ownership **không** đụng ConversationMembers — quyền sở hữu đổi nhưng membership (ai ở trong Chat) không đổi.
+
+**Direct Chat & Friend/Block:** chỉ được mở/gửi tin nhắn mới giữa 2 Friend (`AccountFriendService.findActiveBetween` status `ACCEPTED`) và không bị Block (`AccountBlockService.isBlockedBetween`, ưu tiên cao hơn Friend) — tái sử dụng nguyên vẹn, không viết lại logic. Unfriend/Block **không** xóa Conversation/Messages đã có — lịch sử giữ nguyên, chỉ chặn gửi tin nhắn MỚI. Friend lại/Unblock thì Conversation cũ được dùng lại, không tạo Conversation mới.
+
+**Team Chat khi Team bị xóa:** không có cờ trạng thái riêng trên Conversations — mỗi lần truy cập, `ChatService` đọc lại `Teams.status` qua `TeamService.getTeam` (đã throw `TeamNotFoundException` cho Team `DELETED`) để quyết định còn truy cập được hay không, tránh một cờ "deleted" thứ hai có thể lệch dữ liệu với Teams.status theo thời gian.
+
+**Không có `NotificationType.MESSAGE_RECEIVED`** trong phase này — Chat Notification là quyết định nghiệp vụ/task riêng, chưa triển khai (task spec §25).
+
+### 5e. Realtime Chat Architecture (WebSocket transport layer)
+
+WebSocket **chỉ là transport layer**, không phải một hệ Chat thứ hai — không bảng database mới, không cột mới. `Conversations`/`ConversationMembers`/`Messages` (§5d) vẫn là toàn bộ dữ liệu, và Database vẫn là **source of truth**: mọi message luôn được `INSERT` (qua `ChatService.sendMessage`, transaction-committed) trước khi được broadcast — không có message nào chỉ tồn tại "trong bộ nhớ WebSocket" mà chưa nằm trong `Messages`.
+
+```text
+Browser (WebSocket)
+      ↓ authenticated accountId (từ HTTP session lúc handshake, không tin client)
+ChatWebSocketEndpoint (com.gamenest.websocket) — transport only, không SQL
+      ↓
+ChatService.sendMessage(...)     ← CÙNG method HTTP ChatSendServlet đang gọi
+      ↓ (Friend/Block/Team/membership/content — không lặp lại logic ở WebSocket)
+MessageDAO.insert → Messages (commit)
+      ↓
+ChatService.getRecipientAccountIds(...)  ← DIRECT: other participant; TEAM: TeamService.listMembers hiện tại
+      ↓
+ChatSessionRegistry (accountId → Set&lt;Session&gt;, in-memory, 1 Tomcat instance) → broadcast MESSAGE_CREATED
+```
+
+- **`ChatSessionRegistry`** ánh xạ `accountId → Set<Session>` (không phải 1 Session — hỗ trợ nhiều tab/nhiều trình duyệt cùng lúc) — thuần in-memory, không phải cache thay thế Database, không có ý nghĩa "Presence/Online-Offline" (chưa triển khai, ngoài scope task WebSocket).
+- **Authentication**: `ChatHandshakeConfigurator` đọc `HttpSession` đã authenticate tại thời điểm handshake (`HandshakeRequest.getHttpSession()`), gán trực tiếp vào instance `ChatWebSocketEndpoint` mới cho riêng connection đó (dùng `ThreadLocal` để tránh race giữa các handshake đồng thời qua `ServerEndpointConfig.getUserProperties()` — Map đó dùng chung cho mọi connection tới cùng endpoint, không an toàn để lưu dữ liệu riêng-từng-connection). Không có `accountId` hợp lệ trong session → từ chối connection (đóng WebSocket ngay lúc `@OnOpen`).
+- **Authorization**: WebSocket không kiểm tra lại Friend/Block/Team — mọi điều kiện đó vẫn nằm nguyên trong `ChatService.sendMessage` (dùng chung với HTTP), không có bản sao logic nào ở tầng WebSocket.
+- Không có bảng `WebSocketSessions`/`OnlineUsers`/`Presence` nào được tạo — Database không cần biết gì về WebSocket connection.
 
 ---
 
@@ -371,6 +495,13 @@ Ghi chú: `target_id`/`target_type` của `Reports` và `AuditLogs` là tham chi
 | `11_moderator_role.sql` | Mở rộng `CK_Accounts_role` thêm `MODERATOR` |
 | `12_questions_moderation.sql` | Mở rộng AuditLogs nhận `QUESTIONS`/`QUESTION` |
 | `13_answers_moderation.sql` | Mở rộng AuditLogs nhận `ANSWERS`/`ANSWER`; thêm `IX_Answers_status` |
+| `14_user_foundation.sql` | Tạo `AccountGames`, `Notifications` (User/Community Database Foundation) |
+| `15_account_games_delete_grant.sql` | `GRANT DELETE ON dbo.AccountGames` — cần cho chức năng "Bỏ game" của User Profile |
+| `16_account_follows.sql` | Tạo `AccountFollows` (Follow một chiều) + `GRANT DELETE`; mở rộng `CK_Notifications_type` thêm `FOLLOW` |
+| `17_account_friendships.sql` | Tạo `AccountFriendships` (Kết bạn — request/accept state machine, không `GRANT DELETE`); mở rộng `CK_Notifications_type` thêm `FRIEND_REQUEST`, `FRIEND_ACCEPTED` |
+| `18_account_blocks.sql` | Tạo `AccountBlocks` (Block một chiều, hạn chế hai chiều) + `GRANT DELETE`. Side effects (Follow cleanup cả 2 chiều, Friendship ACCEPTED→UNFRIENDED, PENDING→CANCELLED) là business logic trong `AccountBlockService`, không phải trong migration này — xem §5b |
+| `19_teams.sql` | Tạo `Teams` (soft delete), `TeamMembers` (junction, `GRANT DELETE`), `TeamInvitations` (state machine, không `GRANT DELETE`); mở rộng `CK_Notifications_type` thêm `TEAM_INVITE` — xem §5c |
+| `20_chat.sql` | Tạo `Conversations` (không delete), `Messages` (soft delete), `ConversationMembers` (junction, `GRANT DELETE`). Không mở rộng `CK_Notifications_type` — task này cố ý không thêm `MESSAGE_RECEIVED` — xem §5d |
 
 Tất cả migration từ `07` trở đi đều theo cùng một khuôn mẫu: **additive only** — `DROP CONSTRAINT` + `ADD CONSTRAINT` với danh sách giá trị mở rộng (không bao giờ thu hẹp), không đổi dữ liệu hiện có.
 

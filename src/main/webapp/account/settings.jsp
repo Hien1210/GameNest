@@ -154,6 +154,15 @@
         <% } %>
     </div>
     <% } %>
+
+    <% if (!isAdmin && !isModerator) { %>
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="${pageContext.request.contextPath}/account/home.jsp" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color);">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            <span>Quay lại trang chủ GameNest</span>
+        </a>
+    </div>
+    <% } %>
 </div>
 
 <script>

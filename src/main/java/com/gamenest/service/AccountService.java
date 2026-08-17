@@ -182,6 +182,24 @@ public class AccountService {
     }
 
     /**
+     * Looks up a public-facing profile by username. Only an ACTIVE account
+     * has a visible public profile — mirrors the exact "non-eligible =
+     * not found for outside viewers" rule already used by
+     * {@link com.gamenest.service.GameService#getActiveGameDetail} for
+     * INACTIVE games, so a BANNED/SUSPENDED/DELETED account's profile
+     * behaves like it doesn't exist to other users.
+     */
+    public Account getPublicProfile(String username) throws AccountNotFoundException, SQLException {
+        String normalized = username == null ? null : username.trim();
+        Account account = accountDAO.findByUsername(normalized)
+                .orElseThrow(() -> new AccountNotFoundException("Người dùng không tồn tại."));
+        if (!AccountStatus.ACTIVE.equals(account.getStatus())) {
+            throw new AccountNotFoundException("Người dùng không tồn tại.");
+        }
+        return account;
+    }
+
+    /**
      * Updates the display name of the currently logged-in account. This is
      * the only field Profile is allowed to edit — username, email, role,
      * status and password all stay read-only here. Reuses the same

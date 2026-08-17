@@ -14,6 +14,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jakarta.servlet.version>6.0.0</jakarta.servlet.version>
+        <jakarta.websocket.version>2.1.1</jakarta.websocket.version>
         <mssql.jdbc.version>13.4.0.jre11</mssql.jdbc.version>
         <junit.version>5.10.2</junit.version>
     </properties>
@@ -24,6 +25,29 @@
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <version>${jakarta.servlet.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--
+            Jakarta WebSocket API (provided by Tomcat 10.1+, matches
+            jakarta.servlet-api 6.0.0 / Jakarta EE 10). Both artifacts are
+            declared explicitly: jakarta.websocket-api's own POM depends on
+            jakarta.websocket-client-api with scope=provided, and Maven never
+            propagates a provided-scope transitive dependency to a provided-
+            scope direct dependency — without this second entry, Session/
+            EndpointConfig/@OnOpen/@OnMessage/@OnClose/@OnError (all defined
+            in jakarta.websocket-client-api) fail to compile.
+        -->
+        <dependency>
+            <groupId>jakarta.websocket</groupId>
+            <artifactId>jakarta.websocket-api</artifactId>
+            <version>${jakarta.websocket.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.websocket</groupId>
+            <artifactId>jakarta.websocket-client-api</artifactId>
+            <version>${jakarta.websocket.version}</version>
             <scope>provided</scope>
         </dependency>
 

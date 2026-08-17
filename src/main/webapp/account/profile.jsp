@@ -1,8 +1,11 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.gamenest.model.Account" %>
 <%@ page import="com.gamenest.model.AccountRole" %>
+<%@ page import="com.gamenest.model.AccountGame" %>
+<%@ page import="com.gamenest.model.Game" %>
 <%@ page import="com.gamenest.util.HtmlUtils" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.List" %>
 <%
     // Personal Profile — self-service view/edit of the currently logged-in
     // account. Rendered inside the Admin layout for ADMIN, or as a
@@ -116,6 +119,83 @@
         </form>
         <% } %>
     </div>
+
+    <% if (account != null) {
+        @SuppressWarnings("unchecked")
+        List<AccountGame> playingGames = (List<AccountGame>) request.getAttribute("playingGames");
+        @SuppressWarnings("unchecked")
+        List<AccountGame> favoriteGames = (List<AccountGame>) request.getAttribute("favoriteGames");
+        @SuppressWarnings("unchecked")
+        List<Game> allActiveGames = (List<Game>) request.getAttribute("allActiveGames");
+    %>
+    <div class="profile-card" style="margin-top: 20px;">
+        <h1 class="profile-title" style="font-size: 1.2rem;">Games</h1>
+
+        <div class="profile-games-section">
+            <h2 class="profile-games-heading">Đang chơi</h2>
+            <% if (playingGames == null || playingGames.isEmpty()) { %>
+            <p class="profile-games-empty">Chưa có game nào.</p>
+            <% } else { %>
+            <ul class="profile-games-list">
+                <% for (AccountGame ag : playingGames) { %>
+                <li class="profile-game-chip">
+                    <span><%= HtmlUtils.escape(ag.getGameName()) %></span>
+                    <form action="${pageContext.request.contextPath}/account/profile/games" method="post">
+                        <input type="hidden" name="gameId" value="<%= ag.getGameId() %>">
+                        <input type="hidden" name="action" value="remove-playing">
+                        <button type="submit" class="profile-game-remove" aria-label="Bỏ khỏi Đang chơi" title="Bỏ khỏi Đang chơi">&times;</button>
+                    </form>
+                </li>
+                <% } %>
+            </ul>
+            <% } %>
+        </div>
+
+        <div class="profile-games-section">
+            <h2 class="profile-games-heading">Yêu thích</h2>
+            <% if (favoriteGames == null || favoriteGames.isEmpty()) { %>
+            <p class="profile-games-empty">Chưa có game nào.</p>
+            <% } else { %>
+            <ul class="profile-games-list">
+                <% for (AccountGame ag : favoriteGames) { %>
+                <li class="profile-game-chip">
+                    <span><%= HtmlUtils.escape(ag.getGameName()) %></span>
+                    <form action="${pageContext.request.contextPath}/account/profile/games" method="post">
+                        <input type="hidden" name="gameId" value="<%= ag.getGameId() %>">
+                        <input type="hidden" name="action" value="remove-favorite">
+                        <button type="submit" class="profile-game-remove" aria-label="Bỏ khỏi Yêu thích" title="Bỏ khỏi Yêu thích">&times;</button>
+                    </form>
+                </li>
+                <% } %>
+            </ul>
+            <% } %>
+        </div>
+
+        <% if (allActiveGames != null && !allActiveGames.isEmpty()) { %>
+        <div class="profile-games-add">
+            <form action="${pageContext.request.contextPath}/account/profile/games" method="post" class="profile-games-add-form">
+                <select name="gameId" required>
+                    <option value="">-- Chọn game --</option>
+                    <% for (Game g : allActiveGames) { %>
+                    <option value="<%= g.getGameId() %>"><%= HtmlUtils.escape(g.getName()) %></option>
+                    <% } %>
+                </select>
+                <button type="submit" name="action" value="add-playing" class="btn-secondary">+ Đang chơi</button>
+                <button type="submit" name="action" value="add-favorite" class="btn-secondary">+ Yêu thích</button>
+            </form>
+        </div>
+        <% } %>
+    </div>
+    <% } %>
+
+    <% if (!isAdmin && !isModerator) { %>
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="${pageContext.request.contextPath}/account/home.jsp" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color);">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            <span>Quay lại trang chủ GameNest</span>
+        </a>
+    </div>
+    <% } %>
 </div>
 
 <script>

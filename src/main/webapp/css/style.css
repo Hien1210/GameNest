@@ -566,6 +566,90 @@ body::after {
     gap: 6px;
 }
 
+/* Profile — Playing / Favorite Games (User Profile) */
+.profile-games-section {
+    margin-bottom: 20px;
+}
+
+.profile-games-heading {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 10px;
+}
+
+.profile-games-empty {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    margin: 0;
+}
+
+.profile-games-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+}
+
+.profile-game-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 6px 6px 6px 14px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.profile-game-chip form {
+    margin: 0;
+    display: flex;
+}
+
+.profile-game-remove {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    cursor: pointer;
+    line-height: 1;
+    font-size: 0.9rem;
+}
+
+.profile-game-remove:hover {
+    background: var(--error-color);
+    color: #fff;
+}
+
+.profile-games-add {
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+
+.profile-games-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.profile-games-add-form select {
+    flex: 1;
+    min-width: 180px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
 @media (max-width: 480px) {
     .profile-info {
         grid-template-columns: 1fr;

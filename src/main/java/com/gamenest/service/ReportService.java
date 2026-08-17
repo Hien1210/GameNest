@@ -50,12 +50,14 @@ public class ReportService {
     private final AccountDAO accountDAO;
     private final QuestionDAO questionDAO;
     private final AnswerDAO answerDAO;
+    private final NotificationService notificationService;
 
     public ReportService() {
         this.reportDAO = new ReportDAO();
         this.accountDAO = new AccountDAO();
         this.questionDAO = new QuestionDAO();
         this.answerDAO = new AnswerDAO();
+        this.notificationService = new NotificationService();
     }
 
     /**
@@ -183,6 +185,32 @@ public class ReportService {
         int updated = reportDAO.updateResolution(reportId, newStatus, adminAccountId, normalizedNote);
         if (updated == 0) {
             throw new ReportNotFoundException("Report không tồn tại hoặc đã được xử lý.");
+        }
+
+        notifyReporter(reportId, newStatus, normalizedNote);
+    }
+
+    /**
+     * REPORT_RESOLVED/REPORT_REJECTED: recipient is the Report's reporter,
+     * resolved fresh here (never from the request). This runs only after
+     * {@code reviewReport}'s UPDATE already committed. Re-reading the report
+     * to find the reporter is itself best-effort — a failure here must never
+     * surface as a failure of the resolve/reject operation that already
+     * succeeded (task spec §17), same guarantee {@link NotificationService}
+     * already gives its own INSERT.
+     */
+    private void notifyReporter(int reportId, String newStatus, String resolutionNote) {
+        try {
+            reportDAO.findById(reportId).ifPresent(report -> {
+                if (ReportStatus.RESOLVED.equals(newStatus)) {
+                    notificationService.notifyReportResolved(report.getReporterAccountId(), reportId);
+                } else {
+                    notificationService.notifyReportRejected(report.getReporterAccountId(), reportId, resolutionNote);
+                }
+            });
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Failed to load report for notification (resolution already committed): "
+                    + "reportId=" + reportId, e);
         }
     }
 

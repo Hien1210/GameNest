@@ -54,6 +54,15 @@ public class GameService {
     }
 
     /**
+     * All ACTIVE games, unpaginated — for populating a game-picker (e.g.
+     * Account Profile "add a game" select). Not for public browse listings,
+     * which stay DB-side paginated via {@link #listActiveGames}.
+     */
+    public List<Game> listAllActiveGames() throws SQLException {
+        return gameDAO.findAllActive();
+    }
+
+    /**
      * Only ever returns an ACTIVE game — an INACTIVE game is treated as not
      * found for normal users, so it disappears from both listings and direct
      * links.

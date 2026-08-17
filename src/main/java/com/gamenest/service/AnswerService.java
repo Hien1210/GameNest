@@ -23,15 +23,18 @@ public class AnswerService {
 
     private final AnswerDAO answerDAO;
     private final QuestionDAO questionDAO;
+    private final NotificationService notificationService;
 
     public AnswerService() {
         this.answerDAO = new AnswerDAO();
         this.questionDAO = new QuestionDAO();
+        this.notificationService = new NotificationService();
     }
 
     public AnswerService(AnswerDAO answerDAO, QuestionDAO questionDAO) {
         this.answerDAO = answerDAO;
         this.questionDAO = questionDAO;
+        this.notificationService = new NotificationService();
     }
 
     public List<Answer> listActiveByQuestion(int questionId) throws SQLException {
@@ -66,7 +69,15 @@ public class AnswerService {
         answer.setContent(content);
         answer.setStatus(AnswerStatus.ACTIVE);
 
-        return answerDAO.insert(answer);
+        Answer inserted = answerDAO.insert(answer);
+
+        // ANSWER_REPLY: recipient is the Question's author, never the current
+        // request. No notification when a User replies to their own Question.
+        if (question.getAccountId() != accountId) {
+            notificationService.notifyAnswerReply(question.getAccountId(), questionId, question.getTitle());
+        }
+
+        return inserted;
     }
 
     /**
@@ -134,6 +145,12 @@ public class AnswerService {
             } finally {
                 conn.setAutoCommit(true);
             }
+        }
+
+        // ANSWER_ACCEPTED: recipient is the Answer's author. Skipped when the
+        // question owner accepted their own answer (self-answered question).
+        if (answer.getAccountId() != requesterAccountId) {
+            notificationService.notifyAnswerAccepted(answer.getAccountId(), answerId, question.getTitle());
         }
     }
 
