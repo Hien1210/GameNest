@@ -69,7 +69,7 @@
                     <% if (f.getOtherAvatarUrl() != null && !f.getOtherAvatarUrl().isEmpty()) { %>
                     <img class="account-avatar-img" src="<%= HtmlUtils.escape(f.getOtherAvatarUrl()) %>" alt="">
                     <% } else { %>
-                    <span class="account-avatar-circle"><%= rowInitial %></span>
+                    <span class="account-avatar-circle"><%= HtmlUtils.escape(rowInitial) %></span>
                     <% } %>
                     <div>
                         <div class="account-name"><%= HtmlUtils.escape(rowLabel) %></div>

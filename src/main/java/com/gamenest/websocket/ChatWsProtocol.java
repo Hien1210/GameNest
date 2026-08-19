@@ -1,14 +1,16 @@
 package com.gamenest.websocket;
 
 import com.gamenest.model.Message;
+import com.gamenest.model.Notification;
 
 import java.time.format.DateTimeFormatter;
 
 /**
  * Server→client event builders for the Chat WebSocket protocol (task spec
- * §12/§13, extended with PRESENCE_CHANGED per the Presence task and
- * READ_UPDATED per the Realtime Read/Seen task). No TYPING/NOTIFICATION
- * event exists here, by scope. {@code createdAt} is pre-formatted
+ * §12/§13, extended with PRESENCE_CHANGED per the Presence task,
+ * READ_UPDATED per the Realtime Read/Seen task, TYPING_STARTED/
+ * TYPING_STOPPED per the Typing Indicator task, and NOTIFICATION_CREATED per
+ * the Notification Realtime task). {@code createdAt} is pre-formatted
  * server-side with the exact same pattern {@code account/chat-detail.jsp}
  * already uses, so the client never has to parse/format a timestamp
  * itself.
@@ -76,5 +78,53 @@ final class ChatWsProtocol {
         return "{\"type\":\"READ_UPDATED\",\"conversationId\":" + conversationId
                 + ",\"messageId\":" + messageId
                 + ",\"accountId\":" + accountId + "}";
+    }
+
+    /**
+     * Server-generated only — never accepted as a client→server event (see
+     * {@code ChatWebSocketEndpoint#onMessage}'s allowlist, which only ever
+     * dispatches TYPING_START/TYPING_STOP, never TYPING_STARTED). {@code
+     * accountId} is always the typing account resolved server-side from its
+     * own session — never a client-supplied identity (Typing Indicator task
+     * spec §11). Delivered only to the single DIRECT counterpart, never
+     * broadcast, and never to the typing account's own other sessions.
+     */
+    static String typingStarted(int conversationId, int accountId) {
+        return "{\"type\":\"TYPING_STARTED\",\"conversationId\":" + conversationId
+                + ",\"accountId\":" + accountId + "}";
+    }
+
+    /** Same delivery/authorization rules as {@link #typingStarted}, for the stop edge. */
+    static String typingStopped(int conversationId, int accountId) {
+        return "{\"type\":\"TYPING_STOPPED\",\"conversationId\":" + conversationId
+                + ",\"accountId\":" + accountId + "}";
+    }
+
+    /**
+     * Server-generated only — never accepted as a client→server event; there
+     * is no client→server Notification event by design (task spec §5/§18).
+     * Only fields that exist on {@link Notification} and that the existing
+     * notification UI actually renders (task spec §6/§11): no
+     * recipientAccountId (delivery already scopes this event to the
+     * recipient's own sessions only, via {@code NotificationBroadcaster}),
+     * no {@code read} flag (a just-created Notification is always unread by
+     * construction). {@code message}/{@code targetId}/{@code targetType} are
+     * emitted as JSON {@code null} when absent, matching the model's own
+     * nullable fields exactly rather than inventing a placeholder.
+     */
+    static String notificationCreated(Notification notification) {
+        String createdAt = notification.getCreatedAt() != null ? notification.getCreatedAt().format(TIME_FORMAT) : "";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"type\":\"NOTIFICATION_CREATED\",\"notification\":{")
+                .append("\"notificationId\":").append(notification.getNotificationId()).append(',')
+                .append("\"type\":").append(ChatWsJson.quote(notification.getType())).append(',')
+                .append("\"title\":").append(ChatWsJson.quote(notification.getTitle())).append(',')
+                .append("\"message\":").append(ChatWsJson.quote(notification.getMessage())).append(',')
+                .append("\"targetId\":").append(notification.getTargetId() == null ? "null" : notification.getTargetId()).append(',')
+                .append("\"targetType\":").append(ChatWsJson.quote(notification.getTargetType())).append(',')
+                .append("\"createdAt\":").append(ChatWsJson.quote(createdAt))
+                .append("}}");
+        return sb.toString();
     }
 }

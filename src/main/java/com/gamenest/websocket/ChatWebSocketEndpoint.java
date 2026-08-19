@@ -52,6 +52,18 @@ import java.util.logging.Logger;
  * {@link com.gamenest.controller.ChatReadServlet} already calls over HTTP —
  * the forward-only read ratchet and its guarded silent no-op on an
  * invalid/stale messageId are unchanged, only the transport is new.
+ * <p>
+ * Also carries Typing Indicator (Typing Indicator task, DIRECT only):
+ * {@code TYPING_START}/{@code TYPING_STOP} delegate authorization to
+ * {@link ChatService#getTypingRecipient}, the same membership/DIRECT/
+ * Friend-Block chain every other Chat operation uses — no rule is
+ * re-implemented here. Typing state itself lives only in {@link TypingManager}
+ * (in-memory, per-connection, never persisted); this class only decides
+ * *whether* to broadcast, based on the 0→1/1→0 transitions
+ * {@link TypingManager} reports, and *who* to broadcast to (the resolved
+ * DIRECT counterpart's sessions in {@link ChatSessionRegistry} — never the
+ * sender's own sessions, never a HTTP fallback, since Typing is explicitly
+ * WebSocket-only and ephemeral).
  */
 @ServerEndpoint(value = "/ws/chat", configurator = ChatHandshakeConfigurator.class)
 public class ChatWebSocketEndpoint {
@@ -94,12 +106,13 @@ public class ChatWebSocketEndpoint {
     }
 
     /**
-     * Allowlist dispatch (task spec §26): only SEND_MESSAGE and MARK_READ
-     * are valid client→server events. Everything else — including a client
-     * trying to forge a server-only event like READ_UPDATED,
-     * MESSAGE_CREATED, PRESENCE_CHANGED, or CONNECTION_READY — falls
-     * through to the INVALID_MESSAGE branch and is discarded before it can
-     * reach any business logic.
+     * Allowlist dispatch (task spec §26, extended by the Typing Indicator
+     * task with TYPING_START/TYPING_STOP): only these four values are valid
+     * client→server events. Everything else — including a client trying to
+     * forge a server-only event like READ_UPDATED, MESSAGE_CREATED,
+     * PRESENCE_CHANGED, CONNECTION_READY, TYPING_STARTED, or
+     * TYPING_STOPPED — falls through to the INVALID_MESSAGE branch and is
+     * discarded before it can reach any business logic.
      */
     @OnMessage
     public void onMessage(Session session, String rawMessage) {
@@ -116,6 +129,10 @@ public class ChatWebSocketEndpoint {
             dispatchSendMessage(session, accountId, event);
         } else if ("MARK_READ".equals(type)) {
             dispatchMarkRead(session, accountId, event);
+        } else if ("TYPING_START".equals(type)) {
+            dispatchTypingStart(session, accountId, event);
+        } else if ("TYPING_STOP".equals(type)) {
+            dispatchTypingStop(session, accountId, event);
         } else {
             sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", "Sự kiện không hợp lệ."));
         }
@@ -148,6 +165,27 @@ public class ChatWebSocketEndpoint {
         handleMarkRead(session, accountId, conversationId, messageId);
     }
 
+    private void dispatchTypingStart(Session session, int accountId, Map<String, String> event) {
+        Integer conversationId = parseIntOrNull(event.get("conversationId"));
+        if (conversationId == null) {
+            sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", "Thiếu hoặc sai định dạng conversationId."));
+            return;
+        }
+        // event may also contain a client-supplied "accountId" — never read,
+        // same rule as every other client→server event (Typing Indicator
+        // task spec §11).
+        handleTypingStart(session, accountId, conversationId);
+    }
+
+    private void dispatchTypingStop(Session session, int accountId, Map<String, String> event) {
+        Integer conversationId = parseIntOrNull(event.get("conversationId"));
+        if (conversationId == null) {
+            sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", "Thiếu hoặc sai định dạng conversationId."));
+            return;
+        }
+        handleTypingStop(session, accountId, conversationId);
+    }
+
     @OnClose
     public void onClose(Session session) {
         unregisterQuietly(session);
@@ -164,8 +202,24 @@ public class ChatWebSocketEndpoint {
     private void handleSendMessage(Session session, int accountId, int conversationId, String content) {
         try {
             Message message = chatService.sendMessage(conversationId, accountId, content);
-            String payload = ChatWsProtocol.messageCreated(message);
-            broadcast(resolveBroadcastTargets(conversationId, accountId), payload);
+            Set<Integer> targets = resolveBroadcastTargets(conversationId, accountId);
+            broadcast(targets, ChatWsProtocol.messageCreated(message));
+
+            // Sending a message clears the sender's own Typing state
+            // (Typing Indicator task spec §12) independently of the
+            // client's own JS-side clear, so a stale "đang nhập..." can
+            // never survive on the recipient's screen if MESSAGE_CREATED
+            // happens to arrive before an explicit TYPING_STOP. Reuses the
+            // same target set already resolved for MESSAGE_CREATED (minus
+            // the sender) instead of a second ChatService call —
+            // TypingManager only ever holds an entry for a DIRECT
+            // conversation whose recipient was already authorized at
+            // TYPING_START time, so no re-authorization is needed here.
+            if (TypingManager.clearAccount(conversationId, accountId)) {
+                Set<Integer> typingStopTargets = new HashSet<>(targets);
+                typingStopTargets.remove(accountId);
+                broadcast(typingStopTargets, ChatWsProtocol.typingStopped(conversationId, accountId));
+            }
 
         } catch (ForbiddenException e) {
             sendQuietly(session, ChatWsProtocol.error("FORBIDDEN", e.getMessage()));
@@ -246,6 +300,85 @@ public class ChatWebSocketEndpoint {
         }
     }
 
+    // ---- Typing Indicator flow (DIRECT only) — authorization delegated to
+    // ChatService.getTypingRecipient (membership, DIRECT type, Friend/Block
+    // — the exact same rules sendMessage uses), state transitions delegated
+    // to TypingManager; this class only wires the two together and decides
+    // who receives the resulting TYPING_STARTED/TYPING_STOPPED frame. ----
+
+    /**
+     * Typing events are ephemeral background signals, not user-initiated
+     * actions (Typing Indicator task spec §17/§19) — unlike SEND_MESSAGE/
+     * MARK_READ, a rejected authorization check here is never surfaced as an
+     * ERROR frame (chat-realtime.js's existing handleError unconditionally
+     * window.alert()s, which would be disruptive UX for a passive signal);
+     * it is silently ignored instead. Only structurally malformed client
+     * input (missing/non-numeric conversationId, handled in
+     * {@link #dispatchTypingStart}) still gets INVALID_MESSAGE, matching the
+     * same convention SEND_MESSAGE/MARK_READ already use for that case.
+     */
+    private void handleTypingStart(Session session, int accountId, int conversationId) {
+        Integer recipientAccountId;
+        try {
+            recipientAccountId = chatService.getTypingRecipient(conversationId, accountId);
+        } catch (ForbiddenException | ConversationNotFoundException | ValidationException e) {
+            // Not a member, conversation missing/inactive, or not an
+            // ACCEPTED-friend/blocked pair — safely ignored, no ERROR frame.
+            return;
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Database error while resolving Typing Indicator recipient", e);
+            return;
+        }
+        if (recipientAccountId == null) {
+            // TEAM conversation, or no resolvable DIRECT counterpart — out
+            // of scope for Typing Indicator by design; not an error.
+            return;
+        }
+        if (TypingManager.start(conversationId, accountId, session)) {
+            broadcastTyping(recipientAccountId, ChatWsProtocol.typingStarted(conversationId, accountId));
+        }
+        // TypingManager.start() returning false means another tab of this
+        // same account is already recorded as typing here (task spec §10) —
+        // correctly no re-broadcast.
+    }
+
+    /** Mirrors {@link #handleTypingStart}'s authorization/silence rules for the stop edge. */
+    private void handleTypingStop(Session session, int accountId, int conversationId) {
+        if (!TypingManager.stop(conversationId, accountId, session)) {
+            // No 0-session transition for this account here (already
+            // stopped, or another tab is still typing) — nothing to
+            // broadcast, and no need to re-run authorization for a no-op.
+            return;
+        }
+        try {
+            Integer recipientAccountId = chatService.getTypingRecipient(conversationId, accountId);
+            if (recipientAccountId != null) {
+                broadcastTyping(recipientAccountId, ChatWsProtocol.typingStopped(conversationId, accountId));
+            }
+        } catch (ForbiddenException | ConversationNotFoundException | ValidationException e) {
+            // Local typing state is already cleared regardless; if
+            // authorization no longer holds (e.g. left the conversation
+            // between START and STOP) there is simply nobody left to notify.
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Database error while resolving Typing Indicator recipient", e);
+        }
+    }
+
+    /**
+     * Delivers a Typing frame to every open session of exactly one account
+     * (Typing Indicator task spec §14) — never the typing account's own
+     * sessions, never unrelated accounts, never the whole
+     * {@link ChatSessionRegistry}/{@link PresenceManager} population. If the
+     * recipient has no open session (offline / no tab on this page), this is
+     * a silent no-op — Typing state is never queued or persisted for later
+     * delivery (task spec §14).
+     */
+    private void broadcastTyping(int targetAccountId, String payload) {
+        for (Session targetSession : ChatSessionRegistry.getSessions(targetAccountId)) {
+            sendQuietly(targetSession, payload);
+        }
+    }
+
     // ---- Helpers ----
 
     private Integer resolveAccountId() {
@@ -268,7 +401,11 @@ public class ChatWebSocketEndpoint {
      * must cleanup). Idempotent by construction: {@link PresenceManager#disconnect}
      * is backed by a {@link java.util.Set}, so calling this twice for the
      * same session (e.g. if a container ever fired both callbacks for one
-     * connection) cannot double-decrement or broadcast OFFLINE twice.
+     * connection) cannot double-decrement or broadcast OFFLINE twice. Also
+     * clears any Typing state this session held (Typing Indicator task spec
+     * §13) — {@link TypingManager#disconnect} is likewise idempotent
+     * (backed by a {@link java.util.Map#remove(Object)} keyed on the exact
+     * session), so a duplicate call here is equally harmless.
      */
     private void unregisterQuietly(Session session) {
         Object accountId = session.getUserProperties().get(ACCOUNT_ID_PROPERTY);
@@ -278,6 +415,37 @@ public class ChatWebSocketEndpoint {
             if (becameOffline) {
                 broadcastPresenceChange(id, PresenceStatus.OFFLINE);
             }
+        }
+        clearTypingOnDisconnect(session);
+    }
+
+    /**
+     * A closed/errored connection must never leave the other side stuck
+     * seeing a stale "đang nhập..." (Typing Indicator task spec §13).
+     * {@link TypingManager#disconnect} reports the (conversationId,
+     * accountId) pair only if this session's disconnect actually caused a
+     * 1→0 transition for that account there (i.e. no other tab of the same
+     * account is still typing) — a re-authorization check is still run
+     * before broadcasting, mirroring {@link #handleTypingStop}, since the
+     * connection could be closing precisely because access was revoked
+     * (e.g. Block) a moment earlier.
+     */
+    private void clearTypingOnDisconnect(Session session) {
+        int[] stopped = TypingManager.disconnect(session);
+        if (stopped == null) {
+            return;
+        }
+        int conversationId = stopped[0];
+        int accountId = stopped[1];
+        try {
+            Integer recipientAccountId = chatService.getTypingRecipient(conversationId, accountId);
+            if (recipientAccountId != null) {
+                broadcastTyping(recipientAccountId, ChatWsProtocol.typingStopped(conversationId, accountId));
+            }
+        } catch (ForbiddenException | ConversationNotFoundException | ValidationException e) {
+            // Local typing state is already cleared regardless; nothing left to notify.
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Database error while resolving Typing Indicator recipient on disconnect", e);
         }
     }
 

@@ -50,7 +50,7 @@
                 <% if (account.getAvatarUrl() != null && !account.getAvatarUrl().isEmpty()) { %>
                 <img class="profile-avatar-img" src="<%= HtmlUtils.escape(account.getAvatarUrl()) %>" alt="Avatar">
                 <% } else { %>
-                <span class="profile-avatar-circle" aria-hidden="true"><%= initial %></span>
+                <span class="profile-avatar-circle" aria-hidden="true"><%= HtmlUtils.escape(initial) %></span>
                 <% } %>
             </div>
             <div>

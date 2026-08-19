@@ -633,9 +633,8 @@
            style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--text-primary); text-decoration: none; margin-right: 6px;"
            title="Thông báo">
             <span class="material-symbols-outlined">notifications</span>
-            <% if (unreadNotificationCount > 0) { %>
-            <span style="position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; background: var(--accent-purple); color: #fff; font-size: 0.65rem; line-height: 16px; text-align: center;"><%= unreadNotificationCount > 99 ? "99+" : unreadNotificationCount %></span>
-            <% } %>
+            <span id="notifBadge" data-count="<%= unreadNotificationCount %>"
+                  style="position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; background: var(--accent-purple); color: #fff; font-size: 0.65rem; line-height: 16px; text-align: center; display: <%= unreadNotificationCount > 0 ? "" : "none" %>;"><%= unreadNotificationCount > 99 ? "99+" : unreadNotificationCount %></span>
         </a>
 
         <div class="user-menu-wrap" id="userMenuWrap">
@@ -643,7 +642,7 @@
                 <% if (avatarUrl != null && !avatarUrl.isEmpty()) { %>
                     <img src="<%= HtmlUtils.escape(avatarUrl) %>" class="user-avatar-img" alt="Avatar">
                 <% } else { %>
-                    <div class="user-avatar-circle"><%= avatarInitial %></div>
+                    <div class="user-avatar-circle"><%= HtmlUtils.escape(avatarInitial) %></div>
                 <% } %>
                 <span class="user-name"><%= HtmlUtils.escape(nameToShow) %></span>
                 <span class="material-symbols-outlined user-caret">expand_more</span>
@@ -733,7 +732,7 @@
                 <% if (avatarUrl != null && !avatarUrl.isEmpty()) { %>
                     <img src="<%= HtmlUtils.escape(avatarUrl) %>" class="uqp-avatar" alt="Avatar">
                 <% } else { %>
-                    <div class="uqp-avatar"><%= avatarInitial %></div>
+                    <div class="uqp-avatar"><%= HtmlUtils.escape(avatarInitial) %></div>
                 <% } %>
                 <div class="uqp-info">
                     <div class="uqp-name"><%= HtmlUtils.escape(nameToShow) %></div>
@@ -843,5 +842,12 @@
             }
         });
     </script>
+
+    <script>
+        window.GameNestNotification = {
+            contextPath: "${pageContext.request.contextPath}"
+        };
+    </script>
+    <script src="${pageContext.request.contextPath}/js/notification-realtime.js"></script>
 </body>
 </html>

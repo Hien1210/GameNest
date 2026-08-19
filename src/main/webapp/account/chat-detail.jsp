@@ -43,6 +43,7 @@
         .message-content.deleted { color: var(--text-secondary); font-style: italic; }
         .message-edited-tag { color: var(--text-secondary); font-size: 0.72rem; margin-left: 6px; }
         .read-status { display: block; margin-top: 4px; font-size: 0.7rem; color: var(--text-secondary); text-align: right; }
+        .typing-indicator { font-size: 0.78rem; color: var(--text-secondary); font-style: italic; margin-bottom: 10px; }
         .message-actions { display: flex; gap: 8px; margin-top: 8px; }
         .inline-form { margin: 0; }
         .edit-form { display: flex; gap: 6px; margin-top: 8px; }
@@ -82,6 +83,10 @@
                 <% } %>
             </span>
         </div>
+
+        <% if (ConversationType.DIRECT.equals(conversation.getType())) { %>
+        <div id="typingIndicator" class="typing-indicator" style="display: none;">Đang nhập...</div>
+        <% } %>
 
         <div class="send-card">
             <form class="send-form" method="post" action="${pageContext.request.contextPath}/account/chat/send">

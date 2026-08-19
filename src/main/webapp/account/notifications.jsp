@@ -68,9 +68,9 @@
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
     %>
     <% if (notifications == null || notifications.isEmpty()) { %>
-        <p class="empty"><%= unreadOnly ? "Không có thông báo chưa đọc." : "Bạn chưa có thông báo nào." %></p>
+        <p class="empty" id="notifEmpty"><%= unreadOnly ? "Không có thông báo chưa đọc." : "Bạn chưa có thông báo nào." %></p>
     <% } else { %>
-        <div class="notif-list">
+        <div class="notif-list" id="notifList">
         <% for (Notification n : notifications) {
             boolean navigable = NotificationTargetType.QUESTION.equals(n.getTargetType())
                     || NotificationTargetType.ANSWER.equals(n.getTargetType())
@@ -128,5 +128,12 @@
 
     <p style="margin-top: 30px;"><a href="${pageContext.request.contextPath}/account/home.jsp" style="color: var(--text-secondary);">&larr; Về trang chủ</a></p>
 </div>
+
+<script>
+    window.GameNestNotification = {
+        contextPath: "${pageContext.request.contextPath}"
+    };
+</script>
+<script src="${pageContext.request.contextPath}/js/notification-realtime.js"></script>
 </body>
 </html>

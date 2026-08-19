@@ -24,6 +24,17 @@
         return;
     }
 
+    // Typing Indicator is DIRECT-only (same precedent as trackSeenIndicator
+    // below — a Team member's "typing" would be ambiguous to attribute) and
+    // WS-only: no HTTP fallback exists or is needed, since it's a passive
+    // signal, not a user action (task spec — "nếu WebSocket rớt thì không
+    // hiển thị Typing Indicator, đó là hành vi chấp nhận được").
+    var typingIndicatorEl = document.getElementById("typingIndicator");
+    var typingIndicatorEnabled = config.conversationType === "DIRECT" && !!typingIndicatorEl;
+    var isTypingLocally = false;
+    var typingStopTimer = null;
+    var TYPING_STOP_DELAY_MS = 1500;
+
     // "Đã xem" indicator is DIRECT-only (task spec §12/§15 — one Team
     // member's read position must never be shown as if the whole Team had
     // read it). Realtime-only: there is no server-rendered initial state,
@@ -82,6 +93,10 @@
             handleMessageCreated(data.message);
         } else if (data.type === "READ_UPDATED") {
             handleReadUpdated(data);
+        } else if (data.type === "TYPING_STARTED") {
+            handleTypingStarted(data);
+        } else if (data.type === "TYPING_STOPPED") {
+            handleTypingStopped(data);
         } else if (data.type === "ERROR") {
             handleError(data);
         }
@@ -105,6 +120,13 @@
         prependMessageCard(message, isOwn);
         if (markReadInput) {
             markReadInput.value = message.messageId;
+        }
+        if (typingIndicatorEnabled && !isOwn) {
+            // The other party's message just arrived — guard against a
+            // stale "đang nhập..." if this MESSAGE_CREATED happens to reach
+            // us before its accompanying TYPING_STOPPED frame does (the
+            // server sends them in that order for the same send).
+            hideTypingIndicator();
         }
         if (trackSeenIndicator && isOwn) {
             // A message you just sent hasn't been seen by the other side
@@ -182,6 +204,80 @@
         }
     }
 
+    function handleTypingStarted(data) {
+        if (!typingIndicatorEnabled || Number(data.conversationId) !== Number(config.conversationId)) {
+            return;
+        }
+        if (Number(data.accountId) === Number(config.accountId)) {
+            return; // never our own event (server already excludes us; this is a defensive double-guard)
+        }
+        typingIndicatorEl.style.display = "";
+    }
+
+    function handleTypingStopped(data) {
+        if (!typingIndicatorEnabled || Number(data.conversationId) !== Number(config.conversationId)) {
+            return;
+        }
+        if (Number(data.accountId) === Number(config.accountId)) {
+            return;
+        }
+        hideTypingIndicator();
+    }
+
+    function hideTypingIndicator() {
+        typingIndicatorEl.style.display = "none";
+    }
+
+    // Debounced TYPING_START/STOP (task spec — not per-keystroke): the
+    // first keystroke of a burst sends TYPING_START, every subsequent
+    // keystroke just resets the inactivity timer, and TYPING_STOP fires
+    // once typing has paused for TYPING_STOP_DELAY_MS.
+    function sendTypingStart() {
+        if (isTypingLocally) {
+            return;
+        }
+        isTypingLocally = true;
+        socket.send(JSON.stringify({type: "TYPING_START", conversationId: config.conversationId}));
+    }
+
+    function scheduleTypingStop() {
+        if (typingStopTimer) {
+            clearTimeout(typingStopTimer);
+        }
+        typingStopTimer = setTimeout(function () {
+            typingStopTimer = null;
+            if (isTypingLocally && socketOpen) {
+                isTypingLocally = false;
+                socket.send(JSON.stringify({type: "TYPING_STOP", conversationId: config.conversationId}));
+            } else {
+                isTypingLocally = false;
+            }
+        }, TYPING_STOP_DELAY_MS);
+    }
+
+    // Clicking Send clears the client's own local typing timer/state (task
+    // spec). No explicit TYPING_STOP frame is sent here: the server
+    // independently clears the sender's Typing state as part of handling
+    // SEND_MESSAGE (see ChatWebSocketEndpoint#handleSendMessage), so this
+    // never relies solely on JS to notify the recipient.
+    function clearLocalTypingState() {
+        if (typingStopTimer) {
+            clearTimeout(typingStopTimer);
+            typingStopTimer = null;
+        }
+        isTypingLocally = false;
+    }
+
+    if (typingIndicatorEnabled) {
+        contentInput.addEventListener("input", function () {
+            if (!socketOpen) {
+                return; // Typing Indicator is WS-only — no HTTP fallback.
+            }
+            sendTypingStart();
+            scheduleTypingStop();
+        });
+    }
+
     sendForm.addEventListener("submit", function (event) {
         if (!socketOpen) {
             return; // HTTP fallback — let the normal form submission happen.
@@ -191,6 +287,9 @@
             return;
         }
         event.preventDefault();
+        if (typingIndicatorEnabled) {
+            clearLocalTypingState();
+        }
         socket.send(JSON.stringify({
             type: "SEND_MESSAGE",
             conversationId: config.conversationId,

@@ -332,6 +332,47 @@ public class ChatService {
         return accountIds;
     }
 
+    /**
+     * Typing Indicator recipient resolution (Typing Indicator task spec
+     * §6/§7/§11) — deliberately not a bare "conversationId → find
+     * recipient → broadcast": goes through the exact same authorization
+     * chain as every other Chat operation. Reuses
+     * {@link #getAccessibleConversation} for existence/ACTIVE/current
+     * membership (and, for TEAM, Team-ACTIVE+membership), then the same
+     * private {@link #requireFriendAndNotBlocked} helper {@link #sendMessage}
+     * itself uses — no Friend/Block rule is duplicated. Does not touch
+     * {@link #sendMessage} or change its behavior in any way.
+     * <p>
+     * TEAM conversations are out of scope for Typing Indicator by design
+     * (task spec §3/§16): returns {@code null} rather than throwing, so the
+     * caller can silently ignore a TYPING_START/STOP for a TEAM conversation
+     * — not an error, just "no recipient to notify."
+     *
+     * @return the single DIRECT counterpart's account id to notify, or
+     * {@code null} if the conversation is TEAM (out of scope) or has no
+     * resolvable other participant.
+     * @throws ConversationNotFoundException conversation missing/inactive
+     * @throws ForbiddenException caller is not a current member
+     * @throws ValidationException caller and the counterpart are not
+     * ACCEPTED friends, or either has blocked the other
+     */
+    public Integer getTypingRecipient(int conversationId, int accountId)
+            throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
+
+        Conversation conversation = getAccessibleConversation(conversationId, accountId);
+        if (!ConversationType.DIRECT.equals(conversation.getType())) {
+            return null;
+        }
+
+        Optional<Account> other = conversationMemberDAO.findOtherDirectParticipant(conversationId, accountId);
+        if (other.isEmpty()) {
+            return null;
+        }
+
+        requireFriendAndNotBlocked(accountId, other.get().getAccountId());
+        return other.get().getAccountId();
+    }
+
     // ---- Chat list ----
 
     public List<Conversation> listMyConversations(int accountId, int page) throws SQLException {

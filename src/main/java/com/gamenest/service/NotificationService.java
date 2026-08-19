@@ -4,8 +4,10 @@ import com.gamenest.dao.NotificationDAO;
 import com.gamenest.model.Notification;
 import com.gamenest.model.NotificationTargetType;
 import com.gamenest.model.NotificationType;
+import com.gamenest.websocket.NotificationBroadcaster;
 
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -19,7 +21,13 @@ import java.util.logging.Logger;
  * successfully. These are best-effort side effects: any failure is logged
  * and swallowed here, never propagated, so a Notification INSERT failure
  * can never roll back or fail a business operation that already succeeded
- * (task spec §17) — mirrors {@link AuditLogService#log}.
+ * (task spec §17) — mirrors {@link AuditLogService#log}. Each successful
+ * INSERT is additionally, and only afterward, pushed over the existing Chat
+ * WebSocket connection via {@link NotificationBroadcaster} (Notification
+ * Realtime task spec §3/§7) — realtime delivery is strictly an additional
+ * transport on top of the DB write, never a replacement for it, and a
+ * broadcast failure can no more fail this method than an INSERT failure
+ * can fail the caller.
  * <p>
  * 2. READ side (list/count/mark-as-read) — called directly from User-facing
  * Servlets with an accountId that must always come from the session, never
@@ -144,10 +152,38 @@ public class NotificationService {
             notification.setMessage(message == null ? null : truncate(message, MESSAGE_MAX_LENGTH));
             notification.setTargetId(targetId);
             notification.setTargetType(targetType);
+            notification.setCreatedAt(LocalDateTime.now());
             notificationDAO.insert(notification);
+
+            // Realtime delivery only ever runs after the INSERT above has
+            // returned successfully, i.e. already committed (DBConnection
+            // has no explicit transaction; each insert auto-commits on
+            // return — task spec §7/§19 Case 1/Case 5: never broadcast
+            // before commit, never broadcast a Notification that doesn't
+            // exist in the DB). Any broadcast failure is contained entirely
+            // inside NotificationBroadcaster/ChatWebSocketEndpoint's
+            // send-quietly pattern and can never reach this catch block as
+            // a reason to treat notification creation as failed.
+            broadcastRealtime(notification);
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "Failed to create notification (business operation already succeeded): "
                     + "type=" + type + " recipientAccountId=" + recipientAccountId, e);
+        }
+    }
+
+    /**
+     * Isolated in its own method, wrapped in its own try/catch, so that an
+     * unexpected runtime failure in the realtime transport layer can never
+     * propagate out of {@link #create} and be mistaken for a Notification
+     * creation failure (task spec §17/§19 Case 6) — the INSERT above has
+     * already succeeded by the time this runs.
+     */
+    private void broadcastRealtime(Notification notification) {
+        try {
+            NotificationBroadcaster.broadcastCreated(notification);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Notification realtime broadcast failed (notification already persisted): "
+                    + "notificationId=" + notification.getNotificationId(), e);
         }
     }
 
