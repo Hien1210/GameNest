@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,28 +18,46 @@ import java.util.Optional;
  * Messages is user-generated content — NEVER hard-deleted (db/20_chat.sql,
  * CLAUDE.md §7.1). {@link #softDeleteIfSender} only ever sets deleted_at;
  * there is no DELETE FROM Messages anywhere in this DAO.
+ * <p>
+ * Reply feature (db/21_chat_reply.sql): reply_to_message_id is a nullable
+ * self-referencing FK. The reply target row is resolved via a LEFT JOIN
+ * back onto Messages/Accounts so every read already carries enough of the
+ * target (sender label, content, deleted_at) to render a Reply Preview
+ * without an extra query — deliberately not a separate Replies table.
  */
 public class MessageDAO {
 
     private static final String SELECT_COLUMNS =
-            "m.message_id, m.conversation_id, m.sender_account_id, m.content, m.created_at, m.edited_at, m.deleted_at, "
-                    + "a.username AS sender_username, a.display_name AS sender_display_name, a.avatar_url AS sender_avatar_url ";
+            "m.message_id, m.conversation_id, m.sender_account_id, m.content, m.created_at, m.edited_at, m.deleted_at, m.reply_to_message_id, "
+                    + "a.username AS sender_username, a.display_name AS sender_display_name, a.avatar_url AS sender_avatar_url, "
+                    + "rm.sender_account_id AS reply_sender_account_id, ra.username AS reply_sender_username, "
+                    + "ra.display_name AS reply_sender_display_name, rm.content AS reply_content, rm.deleted_at AS reply_deleted_at ";
     private static final String BASE_SELECT =
-            "SELECT " + SELECT_COLUMNS + "FROM dbo.Messages m JOIN dbo.Accounts a ON a.account_id = m.sender_account_id ";
+            "SELECT " + SELECT_COLUMNS + "FROM dbo.Messages m "
+                    + "JOIN dbo.Accounts a ON a.account_id = m.sender_account_id "
+                    + "LEFT JOIN dbo.Messages rm ON rm.message_id = m.reply_to_message_id "
+                    + "LEFT JOIN dbo.Accounts ra ON ra.account_id = rm.sender_account_id ";
 
-    public Message insert(int conversationId, int senderAccountId, String content) throws SQLException {
-        String sql = "INSERT INTO dbo.Messages (conversation_id, sender_account_id, content) VALUES (?, ?, ?)";
+    /** {@code replyToMessageId} null = tin nhắn thường (Reply feature, task spec §7). */
+    public Message insert(int conversationId, int senderAccountId, String content, Integer replyToMessageId) throws SQLException {
+        String sql = "INSERT INTO dbo.Messages (conversation_id, sender_account_id, content, reply_to_message_id) VALUES (?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, conversationId);
             ps.setInt(2, senderAccountId);
             ps.setString(3, content);
+            if (replyToMessageId != null) {
+                ps.setInt(4, replyToMessageId);
+            } else {
+                ps.setNull(4, Types.INTEGER);
+            }
             ps.executeUpdate();
 
             Message message = new Message();
             message.setConversationId(conversationId);
             message.setSenderAccountId(senderAccountId);
             message.setContent(content);
+            message.setReplyToMessageId(replyToMessageId);
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) {
                     message.setMessageId(keys.getInt(1));
@@ -131,6 +150,13 @@ public class MessageDAO {
         message.setSenderUsername(rs.getString("sender_username"));
         message.setSenderDisplayName(rs.getString("sender_display_name"));
         message.setSenderAvatarUrl(rs.getString("sender_avatar_url"));
+
+        message.setReplyToMessageId(rs.getObject("reply_to_message_id", Integer.class));
+        message.setReplyToSenderAccountId(rs.getObject("reply_sender_account_id", Integer.class));
+        message.setReplyToSenderUsername(rs.getString("reply_sender_username"));
+        message.setReplyToSenderDisplayName(rs.getString("reply_sender_display_name"));
+        message.setReplyToContent(rs.getString("reply_content"));
+        message.setReplyToDeletedAt(rs.getObject("reply_deleted_at", LocalDateTime.class));
         return message;
     }
 }

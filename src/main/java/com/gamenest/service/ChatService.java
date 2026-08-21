@@ -3,6 +3,7 @@ package com.gamenest.service;
 import com.gamenest.dao.ConversationDAO;
 import com.gamenest.dao.ConversationMemberDAO;
 import com.gamenest.dao.MessageDAO;
+import com.gamenest.dao.MessageReactionDAO;
 import com.gamenest.exception.AccountNotFoundException;
 import com.gamenest.exception.ConversationNotFoundException;
 import com.gamenest.exception.DuplicateConversationException;
@@ -18,6 +19,8 @@ import com.gamenest.model.ConversationStatus;
 import com.gamenest.model.ConversationType;
 import com.gamenest.model.FriendshipStatus;
 import com.gamenest.model.Message;
+import com.gamenest.model.MessageReactionSummary;
+import com.gamenest.model.ReactionResult;
 import com.gamenest.model.Team;
 import com.gamenest.model.TeamMember;
 import com.gamenest.util.DBConnection;
@@ -25,8 +28,12 @@ import com.gamenest.util.DBConnection;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Chat core logic — the single authority for every Chat business decision,
@@ -45,9 +52,16 @@ public class ChatService {
     private static final int PAGE_SIZE = 20;
     private static final int MESSAGE_MAX_LENGTH = 2000;
 
+    // Must match db/22_chat_reaction.sql's CK_MessageReactions_emoji
+    // allowlist exactly — the DB CHECK constraint is the real defense
+    // (CLAUDE.md §9), this is a fast-fail before ever hitting the DB.
+    private static final Set<String> REACTION_EMOJI_ALLOWLIST = new HashSet<>(
+            Arrays.asList("👍", "❤️", "😂", "😮", "😢", "😡"));
+
     private final ConversationDAO conversationDAO;
     private final ConversationMemberDAO conversationMemberDAO;
     private final MessageDAO messageDAO;
+    private final MessageReactionDAO messageReactionDAO;
     private final AccountService accountService;
     private final AccountFriendService accountFriendService;
     private final AccountBlockService accountBlockService;
@@ -57,6 +71,7 @@ public class ChatService {
         this.conversationDAO = new ConversationDAO();
         this.conversationMemberDAO = new ConversationMemberDAO();
         this.messageDAO = new MessageDAO();
+        this.messageReactionDAO = new MessageReactionDAO();
         this.accountService = new AccountService();
         this.accountFriendService = new AccountFriendService();
         this.accountBlockService = new AccountBlockService();
@@ -217,8 +232,53 @@ public class ChatService {
      * return value, so HTTP behavior is unaffected; the WebSocket endpoint
      * is the first caller that actually needs the full row, to build the
      * MESSAGE_CREATED broadcast payload.
+     * <p>
+     * Reply feature (task spec §7/§8): {@code replyToMessageId} is null for
+     * a normal message. When non-null it is validated here — the sole
+     * authorization chain for both HTTP and WebSocket — after the existing
+     * membership/Friend-Block/Team checks and before content validation, so
+     * a caller who isn't even allowed to send to this conversation never
+     * reaches the reply-target check. The target must exist and belong to
+     * this exact conversation; cross-conversation targets are rejected.
+     * Self-reply (replying to your own prior message) is explicitly valid —
+     * no sender-mismatch check. A soft-deleted target is still a valid
+     * reply target (the row still exists via the FK); the UI renders a
+     * "deleted" placeholder from {@code replyToDeletedAt} instead of
+     * rejecting the reply.
      */
-    public Message sendMessage(int conversationId, int accountId, String content)
+    public Message sendMessage(int conversationId, int accountId, String content, Integer replyToMessageId)
+            throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
+
+        Conversation conversation = requireSendAccess(conversationId, accountId);
+
+        if (replyToMessageId != null) {
+            Message replyTarget = messageDAO.findById(replyToMessageId)
+                    .orElseThrow(() -> new ValidationException("Tin nhắn được trả lời không tồn tại."));
+            if (replyTarget.getConversationId() != conversationId) {
+                throw new ValidationException("Tin nhắn được trả lời không thuộc cuộc trò chuyện này.");
+            }
+        }
+
+        String normalizedContent = content == null ? null : content.trim();
+        validateContent(normalizedContent);
+
+        Message inserted = messageDAO.insert(conversationId, accountId, normalizedContent, replyToMessageId);
+        return messageDAO.findById(inserted.getMessageId())
+                .orElseThrow(() -> new SQLException("Message not found immediately after insert: " + inserted.getMessageId()));
+    }
+
+    /**
+     * The exact authorization chain a caller must pass to write into a
+     * conversation — conversation exists+ACTIVE, caller is a current
+     * member, then DIRECT→Friend+Block check or TEAM→Team ACTIVE+membership
+     * check. Extracted out of {@link #sendMessage} (Message Reaction task,
+     * Decision 5) so {@link #toggleReaction} can require the exact same
+     * access as sending a message — a single source of truth instead of two
+     * copies that could silently drift apart. {@link #sendMessage}'s
+     * observable behavior/exception types/ordering are unchanged: this is
+     * the same code that used to be inline, only extracted.
+     */
+    private Conversation requireSendAccess(int conversationId, int accountId)
             throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
 
         Conversation conversation = getConversation(conversationId);
@@ -239,13 +299,73 @@ public class ChatService {
                 throw new ForbiddenException("Bạn không phải thành viên của nhóm này.");
             }
         }
+        return conversation;
+    }
 
-        String normalizedContent = content == null ? null : content.trim();
-        validateContent(normalizedContent);
+    /**
+     * Toggle accountId's reaction on messageId to emoji (Message Reaction
+     * task, Decision 3/4/5): ADD if the account has no current reaction,
+     * CHANGE if it has a different one, REMOVE if it already equals emoji —
+     * decided solely from the DB's current state via
+     * {@link MessageReactionDAO#toggle}, never from a client-declared
+     * intent. Reuses {@link #requireSendAccess} so reacting requires exactly
+     * the same access as sending a message to the same conversation (same
+     * membership + Friend/Block + Team checks, single source of truth).
+     * <p>
+     * Rejects with {@link ValidationException} for a soft-deleted target
+     * message (Decision 4) — no new reaction, no change, no removal once
+     * {@code deleted_at} is set; any reactions already on that message stay
+     * untouched in the DB (only hidden from the UI, per the JSP/JS layer).
+     * <p>
+     * The whole read-current/mutate/re-aggregate sequence runs on one
+     * transaction so the returned aggregate is always consistent with the
+     * mutation that was just applied.
+     */
+    public ReactionResult toggleReaction(int messageId, int accountId, String emoji)
+            throws MessageNotFoundException, ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
 
-        Message inserted = messageDAO.insert(conversationId, accountId, normalizedContent);
-        return messageDAO.findById(inserted.getMessageId())
-                .orElseThrow(() -> new SQLException("Message not found immediately after insert: " + inserted.getMessageId()));
+        if (emoji == null || !REACTION_EMOJI_ALLOWLIST.contains(emoji)) {
+            throw new ValidationException("Biểu tượng cảm xúc không hợp lệ.");
+        }
+
+        Message target = messageDAO.findById(messageId)
+                .orElseThrow(() -> new MessageNotFoundException("Tin nhắn không tồn tại."));
+
+        requireSendAccess(target.getConversationId(), accountId);
+
+        if (target.getDeletedAt() != null) {
+            throw new ValidationException("Không thể thả cảm xúc lên tin nhắn đã bị xóa.");
+        }
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                String myReaction = messageReactionDAO.toggle(conn, messageId, accountId, emoji);
+                List<MessageReactionSummary> reactions = messageReactionDAO.aggregateForMessage(conn, messageId);
+                conn.commit();
+                return new ReactionResult(target.getConversationId(), messageId, myReaction, reactions);
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    /**
+     * One recipient's own current reaction on a message — used by the
+     * WebSocket layer to build each REACTION_UPDATED broadcast target's
+     * individual {@code myReaction} (Decision 3): unlike the shared
+     * {@code reactions} aggregate, this value is per-recipient by design,
+     * since each account may have a different (or no) reaction on the same
+     * message. No access check here — the caller already resolved this
+     * recipient list from an authorized broadcast (see
+     * {@code ChatWebSocketEndpoint}), same trust boundary as every other
+     * broadcast-building step in that class.
+     */
+    public String getMyReaction(int messageId, int accountId) throws SQLException {
+        return messageReactionDAO.findEmoji(messageId, accountId);
     }
 
     /** Sender-only, guarded UPDATE (task spec §15) — never re-checks Friend/Block/Team membership, matching Answer edit's own-content-only precedent. */
@@ -270,7 +390,33 @@ public class ChatService {
             throws ConversationNotFoundException, ForbiddenException, SQLException {
         getAccessibleConversation(conversationId, accountId);
         int offset = (clampPage(page) - 1) * PAGE_SIZE;
-        return messageDAO.listByConversation(conversationId, offset, PAGE_SIZE);
+        List<Message> messages = messageDAO.listByConversation(conversationId, offset, PAGE_SIZE);
+        enrichWithReactions(messages, accountId);
+        return messages;
+    }
+
+    /**
+     * Batch-attaches {@code reactions}/{@code myReaction} onto a page of
+     * messages (Message Reaction task) — two queries total (aggregate +
+     * "my reaction"), never one query per message. Reactions are not part
+     * of {@link MessageDAO}'s own SELECT/JOIN because the relationship is
+     * 1-to-many per message (a GROUP BY join would multiply message rows),
+     * unlike the 1:1 sender/reply-target joins MessageDAO already performs.
+     */
+    private void enrichWithReactions(List<Message> messages, int accountId) throws SQLException {
+        if (messages.isEmpty()) {
+            return;
+        }
+        List<Integer> messageIds = new ArrayList<>(messages.size());
+        for (Message message : messages) {
+            messageIds.add(message.getMessageId());
+        }
+        Map<Integer, List<MessageReactionSummary>> reactionsByMessage = messageReactionDAO.aggregateForMessages(messageIds);
+        Map<Integer, String> myReactionByMessage = messageReactionDAO.myReactionForMessages(messageIds, accountId);
+        for (Message message : messages) {
+            message.setReactions(reactionsByMessage.getOrDefault(message.getMessageId(), List.of()));
+            message.setMyReaction(myReactionByMessage.get(message.getMessageId()));
+        }
     }
 
     public int countMessages(int conversationId, int accountId)

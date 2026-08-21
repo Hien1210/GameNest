@@ -44,9 +44,10 @@ public class ChatSendServlet extends HttpServlet {
         int accountId = (int) session.getAttribute("accountId");
         int conversationId = parseId(request.getParameter("conversationId"));
         String content = request.getParameter("content");
+        Integer replyToMessageId = parseOptionalId(request.getParameter("replyToMessageId"));
 
         try {
-            chatService.sendMessage(conversationId, accountId, content);
+            chatService.sendMessage(conversationId, accountId, content, replyToMessageId);
 
         } catch (ForbiddenException e) {
             request.getRequestDispatcher("/access-denied.jsp").forward(request, response);
@@ -73,6 +74,15 @@ public class ChatSendServlet extends HttpServlet {
             return Integer.parseInt(raw);
         } catch (NumberFormatException | NullPointerException e) {
             return -1;
+        }
+    }
+
+    /** replyToMessageId is optional (Reply feature) — absent/invalid must mean "not a reply", never an error. */
+    private Integer parseOptionalId(String raw) {
+        try {
+            return raw == null || raw.isEmpty() ? null : Integer.valueOf(raw);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

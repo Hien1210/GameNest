@@ -24,6 +24,17 @@
         return;
     }
 
+    // Reply (Chat Advanced Feature #1): compose-state elements live in the
+    // send-card above the textarea (see chat-detail.jsp). Absent on any page
+    // that doesn't render them — every reply-UI function below no-ops safely
+    // when these are null, same defensive pattern as typingIndicatorEl above.
+    var replyToInput = document.getElementById("replyToMessageId");
+    var replyPreviewEl = document.getElementById("replyComposePreview");
+    var replyPreviewLabelEl = replyPreviewEl ? replyPreviewEl.querySelector(".reply-compose-label") : null;
+    var replyPreviewTextEl = replyPreviewEl ? replyPreviewEl.querySelector(".reply-compose-text") : null;
+    var replyPreviewCancelBtn = replyPreviewEl ? replyPreviewEl.querySelector(".reply-compose-cancel") : null;
+    var REPLY_PREVIEW_MAX_LENGTH = 80;
+
     // Typing Indicator is DIRECT-only (same precedent as trackSeenIndicator
     // below — a Team member's "typing" would be ambiguous to attribute) and
     // WS-only: no HTTP fallback exists or is needed, since it's a passive
@@ -97,6 +108,8 @@
             handleTypingStarted(data);
         } else if (data.type === "TYPING_STOPPED") {
             handleTypingStopped(data);
+        } else if (data.type === "REACTION_UPDATED") {
+            handleReactionUpdated(data);
         } else if (data.type === "ERROR") {
             handleError(data);
         }
@@ -164,10 +177,16 @@
 
         card.appendChild(header);
 
+        if (message.replyToMessageId) {
+            card.appendChild(buildReplyTargetPreview(message));
+        }
+
         var contentEl = document.createElement("div");
         contentEl.className = "message-content";
         contentEl.textContent = message.content || "";
         card.appendChild(contentEl);
+
+        card.appendChild(buildReactionBar(message.messageId, [], null));
 
         if (trackSeenIndicator && isOwn) {
             var readStatusEl = document.createElement("span");
@@ -175,8 +194,303 @@
             card.appendChild(readStatusEl);
         }
 
+        var replyRow = document.createElement("div");
+        replyRow.className = "message-reply-row";
+        var replyBtn = document.createElement("button");
+        replyBtn.type = "button";
+        replyBtn.className = "reply-btn";
+        replyBtn.textContent = "Trả lời";
+        replyBtn.setAttribute("data-message-id", String(message.messageId));
+        replyBtn.setAttribute("data-sender-label", senderLabel);
+        replyBtn.setAttribute("data-preview", truncateForCompose(message.content || ""));
+        replyRow.appendChild(replyBtn);
+        card.appendChild(replyRow);
+
         messageList.insertBefore(card, messageList.firstChild);
     }
+
+    // Mirrors the reply-target-preview block chat-detail.jsp renders
+    // server-side, so a WS-delivered reply looks identical to a page-loaded
+    // one. message.replyToSenderLabel is always the target's real name
+    // (never "Bạn") since one broadcast payload reaches every recipient —
+    // "Bạn" is substituted here, per-client, by comparing accountIds.
+    function buildReplyTargetPreview(message) {
+        var block = document.createElement("div");
+        block.className = "reply-target-preview";
+        block.setAttribute("data-reply-target-id", String(message.replyToMessageId));
+
+        if (message.replyToDeleted) {
+            var deletedEl = document.createElement("span");
+            deletedEl.className = "reply-target-deleted";
+            deletedEl.textContent = "Tin nhắn đã được xóa";
+            block.appendChild(deletedEl);
+            return block;
+        }
+
+        var isTargetOwn = message.replyToSenderAccountId !== null && message.replyToSenderAccountId !== undefined
+                && Number(message.replyToSenderAccountId) === Number(config.accountId);
+        var senderEl = document.createElement("span");
+        senderEl.className = "reply-target-sender";
+        senderEl.textContent = isTargetOwn ? "Bạn" : (message.replyToSenderLabel || "");
+        block.appendChild(senderEl);
+
+        var textEl = document.createElement("span");
+        textEl.className = "reply-target-text";
+        textEl.textContent = message.replyToPreview || "";
+        block.appendChild(textEl);
+
+        return block;
+    }
+
+    // Client-side mirror of ChatWsProtocol#truncate — used only for the
+    // reply button's own data-preview (a preview of THIS message's full
+    // content, shown in the compose box if the user replies to it), never
+    // for rendering a reply target (that preview always comes pre-truncated
+    // from the server via replyToPreview).
+    function truncateForCompose(content) {
+        if (content.length <= REPLY_PREVIEW_MAX_LENGTH) {
+            return content;
+        }
+        return content.substring(0, REPLY_PREVIEW_MAX_LENGTH) + "…";
+    }
+
+    function startReply(messageId, senderLabel, preview) {
+        if (!replyToInput || !replyPreviewEl) {
+            return;
+        }
+        replyToInput.value = String(messageId);
+        if (replyPreviewLabelEl) {
+            replyPreviewLabelEl.textContent = senderLabel || "";
+        }
+        if (replyPreviewTextEl) {
+            replyPreviewTextEl.textContent = preview || "";
+        }
+        replyPreviewEl.style.display = "";
+        contentInput.focus();
+    }
+
+    function cancelReply() {
+        if (!replyToInput || !replyPreviewEl) {
+            return;
+        }
+        replyToInput.value = "";
+        replyPreviewEl.style.display = "none";
+    }
+
+    function scrollToMessage(messageId) {
+        var target = messageList.querySelector('.message-card[data-message-id="' + messageId + '"]');
+        if (!target) {
+            return; // target not currently loaded on this page — no Message Search, do nothing (task scope).
+        }
+        target.scrollIntoView({behavior: "smooth", block: "center"});
+        target.classList.add("highlight");
+        setTimeout(function () {
+            target.classList.remove("highlight");
+        }, 1500);
+    }
+
+    if (replyPreviewCancelBtn) {
+        replyPreviewCancelBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            cancelReply();
+        });
+    }
+
+    // Delegated so it also covers reply buttons/preview blocks added later
+    // by prependMessageCard, not just the ones rendered at page load.
+    messageList.addEventListener("click", function (event) {
+        var replyBtn = event.target.closest ? event.target.closest(".reply-btn") : null;
+        if (replyBtn) {
+            startReply(
+                replyBtn.getAttribute("data-message-id"),
+                replyBtn.getAttribute("data-sender-label"),
+                replyBtn.getAttribute("data-preview")
+            );
+            return;
+        }
+        var previewBlock = event.target.closest ? event.target.closest(".reply-target-preview") : null;
+        if (previewBlock) {
+            scrollToMessage(previewBlock.getAttribute("data-reply-target-id"));
+        }
+    });
+
+    // Reaction (Chat Advanced Feature #2): every non-deleted message renders
+    // its own .reaction-bar (existing chips + a "+" picker of the fixed
+    // 6-emoji allowlist — must mirror ChatService's REACTION_EMOJI_ALLOWLIST
+    // and chat-detail.jsp's own REACTION_EMOJI array exactly). Reaction
+    // controls are real <form> POSTs to /account/chat/reaction (progressive
+    // enhancement, same pattern as sendForm/markReadForm): intercepted here
+    // to send TOGGLE_REACTION over the socket when one is open, otherwise
+    // left alone to submit as plain HTTP. The server is the sole authority
+    // on ADD/REMOVE/CHANGE — this client only ever sends TOGGLE_REACTION and
+    // only ever renders whatever REACTION_UPDATED sends back, never a local
+    // optimistic guess.
+    var REACTION_EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+
+    function buildReactionChipForm(messageId, emoji, count, mine, isPickerOption) {
+        var form = document.createElement("form");
+        form.className = "inline-form reaction-form";
+        form.method = "post";
+        form.action = config.contextPath + "/account/chat/reaction";
+
+        var messageIdInput = document.createElement("input");
+        messageIdInput.type = "hidden";
+        messageIdInput.name = "messageId";
+        messageIdInput.value = String(messageId);
+        form.appendChild(messageIdInput);
+
+        var emojiInput = document.createElement("input");
+        emojiInput.type = "hidden";
+        emojiInput.name = "emoji";
+        emojiInput.value = emoji;
+        form.appendChild(emojiInput);
+
+        var button = document.createElement("button");
+        button.type = "submit";
+        if (isPickerOption) {
+            button.className = "reaction-picker-btn";
+            button.textContent = emoji;
+        } else {
+            button.className = "reaction-chip" + (mine ? " mine" : "");
+            button.textContent = emoji + " ";
+            var countEl = document.createElement("span");
+            countEl.className = "reaction-count";
+            countEl.textContent = String(count);
+            button.appendChild(countEl);
+        }
+        form.appendChild(button);
+
+        return form;
+    }
+
+    // Shared by prependMessageCard (brand-new WS-delivered message: empty
+    // reactions, myReaction null) and handleReactionUpdated (rebuild an
+    // existing bar in place from the server's own aggregate) — mirrors the
+    // SSR structure chat-detail.jsp renders exactly (chips, then a "+"
+    // add-button, then the hidden picker), so a WS-built bar and a
+    // page-loaded one are indistinguishable.
+    function buildReactionBar(messageId, reactions, myReaction) {
+        var bar = document.createElement("div");
+        bar.className = "reaction-bar";
+        bar.setAttribute("data-message-id", String(messageId));
+
+        (reactions || []).forEach(function (r) {
+            bar.appendChild(buildReactionChipForm(messageId, r.emoji, r.count, r.emoji === myReaction, false));
+        });
+
+        var addWrap = document.createElement("div");
+        addWrap.className = "reaction-add-wrap";
+
+        var addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "reaction-add-btn";
+        addBtn.title = "Thả cảm xúc";
+        addBtn.textContent = "+";
+        addWrap.appendChild(addBtn);
+
+        var picker = document.createElement("div");
+        picker.className = "reaction-picker";
+        picker.style.display = "none";
+        REACTION_EMOJI_OPTIONS.forEach(function (emoji) {
+            picker.appendChild(buildReactionChipForm(messageId, emoji, null, false, true));
+        });
+        addWrap.appendChild(picker);
+
+        bar.appendChild(addWrap);
+        return bar;
+    }
+
+    // REACTION_UPDATED always carries the full current aggregate (task
+    // Decision 3) — the whole bar is rebuilt from scratch rather than
+    // patched, so there's no risk of drifting from server state.
+    function handleReactionUpdated(data) {
+        var card = messageList.querySelector('.message-card[data-message-id="' + data.messageId + '"]');
+        if (!card) {
+            return; // message not loaded on this page — nothing to update
+        }
+        var oldBar = card.querySelector(".reaction-bar");
+        if (!oldBar) {
+            // Only a soft-deleted message ever omits .reaction-bar (both the
+            // JSP and prependMessageCard always render one otherwise); the
+            // server itself rejects toggling a reaction on a deleted
+            // message, so this should never actually happen — ignore rather
+            // than guess where to insert one.
+            return;
+        }
+        var newBar = buildReactionBar(data.messageId, data.reactions || [], data.myReaction || null);
+        card.replaceChild(newBar, oldBar);
+    }
+
+    function closeAllReactionPickers(except) {
+        var pickers = messageList.querySelectorAll(".reaction-picker");
+        for (var i = 0; i < pickers.length; i++) {
+            if (pickers[i] !== except) {
+                pickers[i].style.display = "none";
+            }
+        }
+    }
+
+    function toggleReactionPicker(addBtn) {
+        var wrap = addBtn.closest ? addBtn.closest(".reaction-add-wrap") : null;
+        var picker = wrap ? wrap.querySelector(".reaction-picker") : null;
+        if (!picker) {
+            return;
+        }
+        var isOpen = picker.style.display !== "none";
+        closeAllReactionPickers();
+        picker.style.display = isOpen ? "none" : "flex";
+    }
+
+    // Delegated (not bound at creation time) because .reaction-add-btn
+    // elements are rebuilt wholesale on every REACTION_UPDATED — a listener
+    // attached to one specific button would be discarded along with it.
+    messageList.addEventListener("click", function (event) {
+        var addBtn = event.target.closest ? event.target.closest(".reaction-add-btn") : null;
+        if (addBtn) {
+            event.preventDefault();
+            toggleReactionPicker(addBtn);
+        }
+    });
+
+    // Close any open picker on an outside click. A click that opened one
+    // (the handler above) or that is about to submit a picker option (the
+    // submit handler below) both land inside .reaction-add-wrap, so they're
+    // excluded here.
+    document.addEventListener("click", function (event) {
+        if (event.target.closest && event.target.closest(".reaction-add-wrap")) {
+            return;
+        }
+        closeAllReactionPickers();
+    });
+
+    // Delegated for the same reason as the click handler above — reaction
+    // forms (both existing chips and picker options) are rebuilt on every
+    // REACTION_UPDATED, so only a listener on the stable #messageList
+    // ancestor keeps working across rebuilds. TOGGLE_REACTION is the only
+    // client→server reaction event (task Decision 2) — this never sends
+    // ADD_REACTION/REMOVE_REACTION/CHANGE_REACTION; the server alone decides
+    // which of those actually happened.
+    messageList.addEventListener("submit", function (event) {
+        var form = event.target.closest ? event.target.closest(".reaction-form") : null;
+        if (!form) {
+            return;
+        }
+        if (!socketOpen) {
+            return; // HTTP fallback — POST /account/chat/reaction still works exactly as before.
+        }
+        var messageIdInput = form.querySelector('input[name="messageId"]');
+        var emojiInput = form.querySelector('input[name="emoji"]');
+        if (!messageIdInput || !emojiInput) {
+            return;
+        }
+        event.preventDefault();
+        socket.send(JSON.stringify({
+            type: "TOGGLE_REACTION",
+            messageId: Number(messageIdInput.value),
+            emoji: emojiInput.value
+        }));
+        closeAllReactionPickers();
+    });
 
     function handleReadUpdated(data) {
         if (!trackSeenIndicator || Number(data.conversationId) !== Number(config.conversationId)) {
@@ -290,12 +604,15 @@
         if (typingIndicatorEnabled) {
             clearLocalTypingState();
         }
+        var replyToMessageId = replyToInput && replyToInput.value ? Number(replyToInput.value) : null;
         socket.send(JSON.stringify({
             type: "SEND_MESSAGE",
             conversationId: config.conversationId,
-            content: content
+            content: content,
+            replyToMessageId: replyToMessageId
         }));
         contentInput.value = "";
+        cancelReply();
     });
 
     if (markReadForm && markReadInput) {

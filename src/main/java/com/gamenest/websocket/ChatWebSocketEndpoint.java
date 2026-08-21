@@ -2,11 +2,13 @@ package com.gamenest.websocket;
 
 import com.gamenest.exception.ConversationNotFoundException;
 import com.gamenest.exception.ForbiddenException;
+import com.gamenest.exception.MessageNotFoundException;
 import com.gamenest.exception.TeamNotFoundException;
 import com.gamenest.exception.ValidationException;
 import com.gamenest.model.Conversation;
 import com.gamenest.model.Message;
 import com.gamenest.model.PresenceStatus;
+import com.gamenest.model.ReactionResult;
 import com.gamenest.service.ChatService;
 import com.gamenest.service.PresenceService;
 
@@ -107,12 +109,16 @@ public class ChatWebSocketEndpoint {
 
     /**
      * Allowlist dispatch (task spec §26, extended by the Typing Indicator
-     * task with TYPING_START/TYPING_STOP): only these four values are valid
-     * client→server events. Everything else — including a client trying to
-     * forge a server-only event like READ_UPDATED, MESSAGE_CREATED,
-     * PRESENCE_CHANGED, CONNECTION_READY, TYPING_STARTED, or
-     * TYPING_STOPPED — falls through to the INVALID_MESSAGE branch and is
-     * discarded before it can reach any business logic.
+     * task with TYPING_START/TYPING_STOP, and by the Message Reaction task
+     * with TOGGLE_REACTION): only these values are valid client→server
+     * events. Everything else — including a client trying to forge a
+     * server-only event like READ_UPDATED, MESSAGE_CREATED,
+     * PRESENCE_CHANGED, CONNECTION_READY, TYPING_STARTED, TYPING_STOPPED, or
+     * REACTION_UPDATED — falls through to the INVALID_MESSAGE branch and is
+     * discarded before it can reach any business logic. Note ADD_REACTION/
+     * REMOVE_REACTION/CHANGE_REACTION are deliberately never accepted
+     * either (Decision 2) — the server alone decides which of those a
+     * TOGGLE_REACTION resolves to.
      */
     @OnMessage
     public void onMessage(Session session, String rawMessage) {
@@ -133,6 +139,8 @@ public class ChatWebSocketEndpoint {
             dispatchTypingStart(session, accountId, event);
         } else if ("TYPING_STOP".equals(type)) {
             dispatchTypingStop(session, accountId, event);
+        } else if ("TOGGLE_REACTION".equals(type)) {
+            dispatchToggleReaction(session, accountId, event);
         } else {
             sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", "Sự kiện không hợp lệ."));
         }
@@ -148,8 +156,12 @@ public class ChatWebSocketEndpoint {
         // never read; accountId above (from the authenticated session) is
         // the only sender identity ever used (task spec §16/§20 TEST 9).
         String content = event.get("content");
+        // Reply feature: optional, null when absent/invalid — not a reply,
+        // never an error. Cross-conversation/nonexistent targets are
+        // rejected inside ChatService.sendMessage, not here.
+        Integer replyToMessageId = parseIntOrNull(event.get("replyToMessageId"));
 
-        handleSendMessage(session, accountId, conversationId, content);
+        handleSendMessage(session, accountId, conversationId, content, replyToMessageId);
     }
 
     private void dispatchMarkRead(Session session, int accountId, Map<String, String> event) {
@@ -186,6 +198,19 @@ public class ChatWebSocketEndpoint {
         handleTypingStop(session, accountId, conversationId);
     }
 
+    private void dispatchToggleReaction(Session session, int accountId, Map<String, String> event) {
+        Integer messageId = parseIntOrNull(event.get("messageId"));
+        String emoji = event.get("emoji");
+        if (messageId == null || emoji == null) {
+            sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", "Thiếu hoặc sai định dạng messageId/emoji."));
+            return;
+        }
+        // event may also contain a client-supplied "accountId" — never read,
+        // same rule as every other client→server event; the emoji allowlist
+        // itself is re-validated inside ChatService.toggleReaction, not here.
+        handleToggleReaction(session, accountId, messageId, emoji);
+    }
+
     @OnClose
     public void onClose(Session session) {
         unregisterQuietly(session);
@@ -199,9 +224,9 @@ public class ChatWebSocketEndpoint {
 
     // ---- Send flow — every decision delegated to ChatService (task spec §7/§8/§16) ----
 
-    private void handleSendMessage(Session session, int accountId, int conversationId, String content) {
+    private void handleSendMessage(Session session, int accountId, int conversationId, String content, Integer replyToMessageId) {
         try {
-            Message message = chatService.sendMessage(conversationId, accountId, content);
+            Message message = chatService.sendMessage(conversationId, accountId, content, replyToMessageId);
             Set<Integer> targets = resolveBroadcastTargets(conversationId, accountId);
             broadcast(targets, ChatWsProtocol.messageCreated(message));
 
@@ -267,6 +292,52 @@ public class ChatWebSocketEndpoint {
             for (Session targetSession : ChatSessionRegistry.getSessions(targetAccountId)) {
                 sendQuietly(targetSession, payload);
             }
+        }
+    }
+
+    // ---- Reaction flow — reuses ChatService.toggleReaction, which itself
+    // reuses the exact same authorization chain as sendMessage
+    // (ChatService#requireSendAccess); no SQL, no Friend/Block/Team rule is
+    // duplicated in this class (Message Reaction task, Decision 3/5). ----
+
+    /**
+     * REACTION_UPDATED is per-recipient by payload shape (Decision 3):
+     * unlike every other broadcast in this class, the same
+     * {@code reactions} aggregate is serialized once PER TARGET account,
+     * each with that target's own current {@code myReaction} looked up
+     * individually via {@link ChatService#getMyReaction}. This is why the
+     * shared {@link #broadcast(Set, String)} helper (one string for every
+     * target) cannot be reused unmodified for this one event type.
+     */
+    private void handleToggleReaction(Session session, int accountId, int messageId, String emoji) {
+        try {
+            ReactionResult result = chatService.toggleReaction(messageId, accountId, emoji);
+            Set<Integer> targets = resolveBroadcastTargets(result.getConversationId(), accountId);
+            for (int targetAccountId : targets) {
+                String myReactionForTarget = targetAccountId == accountId
+                        ? result.getMyReaction()
+                        : chatService.getMyReaction(messageId, targetAccountId);
+                String payload = ChatWsProtocol.reactionUpdated(messageId, myReactionForTarget, result.getReactions());
+                for (Session targetSession : ChatSessionRegistry.getSessions(targetAccountId)) {
+                    sendQuietly(targetSession, payload);
+                }
+            }
+
+        } catch (MessageNotFoundException e) {
+            sendQuietly(session, ChatWsProtocol.error("NOT_FOUND", e.getMessage()));
+
+        } catch (ForbiddenException e) {
+            sendQuietly(session, ChatWsProtocol.error("FORBIDDEN", e.getMessage()));
+
+        } catch (ValidationException e) {
+            sendQuietly(session, ChatWsProtocol.error("INVALID_MESSAGE", e.getMessage()));
+
+        } catch (ConversationNotFoundException e) {
+            sendQuietly(session, ChatWsProtocol.error("NOT_FOUND", e.getMessage()));
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error while toggling WebSocket chat reaction", e);
+            sendQuietly(session, ChatWsProtocol.error("SERVER_ERROR", "Đã có lỗi xảy ra, vui lòng thử lại sau."));
         }
     }
 

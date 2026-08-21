@@ -1,6 +1,8 @@
 package com.gamenest.model;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 
 public class Message {
 
@@ -11,12 +13,32 @@ public class Message {
     private LocalDateTime createdAt;
     private LocalDateTime editedAt;
     private LocalDateTime deletedAt;
+    private Integer replyToMessageId;
 
     // Populated only by DAO queries that join Accounts for display — not
     // persisted columns on this entity.
     private String senderUsername;
     private String senderDisplayName;
     private String senderAvatarUrl;
+
+    // Populated only by DAO queries that LEFT JOIN the reply target message
+    // (Reply feature) — not persisted columns on this entity. Null unless
+    // replyToMessageId is non-null.
+    private Integer replyToSenderAccountId;
+    private String replyToSenderUsername;
+    private String replyToSenderDisplayName;
+    private String replyToContent;
+    private LocalDateTime replyToDeletedAt;
+
+    // Populated only by ChatService.listMessages' batch enrichment step
+    // (Reaction feature, MessageReactionDAO) — not persisted columns on
+    // this entity, and never populated by MessageDAO.mapRow itself since
+    // reactions are 1-to-many per message (cannot be represented via
+    // MessageDAO's single-row LEFT JOIN pattern without row multiplication).
+    // reactions defaults to an empty list (never null) so JSP/JS never need
+    // a null-check; myReaction is null when the caller has not reacted.
+    private List<MessageReactionSummary> reactions = Collections.emptyList();
+    private String myReaction;
 
     public int getMessageId() {
         return messageId;
@@ -96,5 +118,69 @@ public class Message {
 
     public void setSenderAvatarUrl(String senderAvatarUrl) {
         this.senderAvatarUrl = senderAvatarUrl;
+    }
+
+    public Integer getReplyToMessageId() {
+        return replyToMessageId;
+    }
+
+    public void setReplyToMessageId(Integer replyToMessageId) {
+        this.replyToMessageId = replyToMessageId;
+    }
+
+    public Integer getReplyToSenderAccountId() {
+        return replyToSenderAccountId;
+    }
+
+    public void setReplyToSenderAccountId(Integer replyToSenderAccountId) {
+        this.replyToSenderAccountId = replyToSenderAccountId;
+    }
+
+    public String getReplyToSenderUsername() {
+        return replyToSenderUsername;
+    }
+
+    public void setReplyToSenderUsername(String replyToSenderUsername) {
+        this.replyToSenderUsername = replyToSenderUsername;
+    }
+
+    public String getReplyToSenderDisplayName() {
+        return replyToSenderDisplayName;
+    }
+
+    public void setReplyToSenderDisplayName(String replyToSenderDisplayName) {
+        this.replyToSenderDisplayName = replyToSenderDisplayName;
+    }
+
+    public String getReplyToContent() {
+        return replyToContent;
+    }
+
+    public void setReplyToContent(String replyToContent) {
+        this.replyToContent = replyToContent;
+    }
+
+    public LocalDateTime getReplyToDeletedAt() {
+        return replyToDeletedAt;
+    }
+
+    public void setReplyToDeletedAt(LocalDateTime replyToDeletedAt) {
+        this.replyToDeletedAt = replyToDeletedAt;
+    }
+
+    public List<MessageReactionSummary> getReactions() {
+        return reactions;
+    }
+
+    public void setReactions(List<MessageReactionSummary> reactions) {
+        this.reactions = reactions == null ? Collections.emptyList() : reactions;
+    }
+
+    public String getMyReaction() {
+        return myReaction;
+    }
+
+    public void setMyReaction(String myReaction) {
+        this.myReaction = myReaction;
     }
 }

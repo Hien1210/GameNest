@@ -4,6 +4,7 @@
 <%@ page import="com.gamenest.model.Conversation" %>
 <%@ page import="com.gamenest.model.ConversationType" %>
 <%@ page import="com.gamenest.model.Message" %>
+<%@ page import="com.gamenest.model.MessageReactionSummary" %>
 <%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
@@ -45,6 +46,26 @@
         .read-status { display: block; margin-top: 4px; font-size: 0.7rem; color: var(--text-secondary); text-align: right; }
         .typing-indicator { font-size: 0.78rem; color: var(--text-secondary); font-style: italic; margin-bottom: 10px; }
         .message-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .message-reply-row { margin-top: 6px; }
+        .reaction-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; position: relative; }
+        .reaction-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; font-size: 0.82rem; }
+        .reaction-chip.mine { border-color: var(--accent-purple); background: rgba(139, 92, 246, 0.12); }
+        .reaction-count { font-size: 0.74rem; color: var(--text-secondary); }
+        .reaction-add-wrap { position: relative; display: inline-block; }
+        .reaction-add-btn { width: 22px; height: 22px; line-height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.86rem; }
+        .reaction-picker { position: absolute; bottom: 26px; left: 0; z-index: 5; display: flex; gap: 4px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-secondary); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+        .reaction-picker-btn { padding: 2px 5px; border: none; background: transparent; cursor: pointer; font-size: 1rem; border-radius: 6px; }
+        .reaction-picker-btn:hover { background: var(--bg-primary); }
+        .reply-btn { padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.72rem; }
+        .reply-target-preview { border-left: 3px solid var(--border-hover); padding: 4px 8px; margin-bottom: 6px; border-radius: 4px; background: var(--bg-primary); cursor: pointer; font-size: 0.8rem; }
+        .reply-target-sender { font-weight: 600; margin-right: 6px; }
+        .reply-target-text { color: var(--text-secondary); }
+        .reply-target-deleted { color: var(--text-secondary); font-style: italic; }
+        .message-card.highlight { border-color: var(--accent-purple); }
+        .reply-compose-preview { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-left: 3px solid var(--accent-purple); padding: 6px 10px; margin-bottom: 8px; border-radius: 4px; background: var(--bg-primary); font-size: 0.8rem; }
+        .reply-compose-label { font-weight: 600; margin-right: 6px; }
+        .reply-compose-text { color: var(--text-secondary); }
+        .reply-compose-cancel { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; }
         .inline-form { margin: 0; }
         .edit-form { display: flex; gap: 6px; margin-top: 8px; }
         .edit-form input[type=text] { flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; }
@@ -89,8 +110,13 @@
         <% } %>
 
         <div class="send-card">
+            <div id="replyComposePreview" class="reply-compose-preview" style="display: none;">
+                <span><span class="reply-compose-label"></span><span class="reply-compose-text"></span></span>
+                <button type="button" class="reply-compose-cancel" title="Hủy trả lời">&times;</button>
+            </div>
             <form class="send-form" method="post" action="${pageContext.request.contextPath}/account/chat/send">
                 <input type="hidden" name="conversationId" value="<%= conversation.getConversationId() %>">
+                <input type="hidden" id="replyToMessageId" name="replyToMessageId" value="">
                 <textarea name="content" maxlength="2000" placeholder="Nhập tin nhắn..." required></textarea>
                 <button type="submit" class="btn btn-primary">Gửi</button>
             </form>
@@ -109,24 +135,88 @@
         <div id="messageList">
         <% if (messages == null || messages.isEmpty()) { %>
             <p class="empty" id="emptyMessagesPlaceholder">Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</p>
-        <% } else { %>
-            <% for (Message m : messages) {
+        <% } else {
+            String[] REACTION_EMOJI = {"👍", "❤️", "😂", "😮", "😢", "😡"};
+            for (Message m : messages) {
                 boolean isOwn = currentAccountId != null && m.getSenderAccountId() == currentAccountId;
                 boolean isDeleted = m.getDeletedAt() != null;
                 String senderLabel = m.getSenderDisplayName() != null && !m.getSenderDisplayName().isEmpty() ? m.getSenderDisplayName() : m.getSenderUsername();
+
+                Integer replyToMessageId = m.getReplyToMessageId();
+                boolean replyToDeleted = m.getReplyToDeletedAt() != null;
+                boolean replyTargetIsOwn = replyToMessageId != null && currentAccountId != null
+                        && m.getReplyToSenderAccountId() != null && m.getReplyToSenderAccountId() == currentAccountId;
+                String replyTargetLabel = null;
+                String replyTargetPreview = null;
+                if (replyToMessageId != null && !replyToDeleted) {
+                    replyTargetLabel = replyTargetIsOwn ? "Bạn"
+                            : (m.getReplyToSenderDisplayName() != null && !m.getReplyToSenderDisplayName().isEmpty()
+                                    ? m.getReplyToSenderDisplayName() : m.getReplyToSenderUsername());
+                    replyTargetPreview = m.getReplyToContent();
+                    if (replyTargetPreview != null && replyTargetPreview.length() > 80) {
+                        replyTargetPreview = replyTargetPreview.substring(0, 80) + "…";
+                    }
+                }
+                String composePreviewText = m.getContent() != null && m.getContent().length() > 80
+                        ? m.getContent().substring(0, 80) + "…" : m.getContent();
             %>
             <div class="message-card <%= isOwn ? "own" : "" %>" data-message-id="<%= m.getMessageId() %>">
                 <div class="message-header">
                     <span class="message-sender"><%= HtmlUtils.escape(isOwn ? "Bạn" : senderLabel) %></span>
                     <span class="message-time"><%= m.getCreatedAt() != null ? m.getCreatedAt().format(fmt) : "" %></span>
                 </div>
+                <% if (replyToMessageId != null) { %>
+                <div class="reply-target-preview" data-reply-target-id="<%= replyToMessageId %>">
+                    <% if (replyToDeleted) { %>
+                    <span class="reply-target-deleted">Tin nhắn đã được xóa</span>
+                    <% } else { %>
+                    <span class="reply-target-sender"><%= HtmlUtils.escape(replyTargetLabel) %></span>
+                    <span class="reply-target-text"><%= HtmlUtils.escape(replyTargetPreview) %></span>
+                    <% } %>
+                </div>
+                <% } %>
                 <% if (isDeleted) { %>
                 <div class="message-content deleted">Tin nhắn đã được xóa.</div>
                 <% } else { %>
                 <div class="message-content"><%= HtmlUtils.escape(m.getContent()) %><% if (m.getEditedAt() != null) { %><span class="message-edited-tag">(đã chỉnh sửa)</span><% } %></div>
+
+                <% if (!isDeleted) { %>
+                <div class="reaction-bar" data-message-id="<%= m.getMessageId() %>">
+                    <% for (MessageReactionSummary r : m.getReactions()) {
+                        boolean mine = r.getEmoji().equals(m.getMyReaction());
+                    %>
+                    <form class="inline-form reaction-form" method="post" action="${pageContext.request.contextPath}/account/chat/reaction">
+                        <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
+                        <input type="hidden" name="emoji" value="<%= r.getEmoji() %>">
+                        <button type="submit" class="reaction-chip <%= mine ? "mine" : "" %>"><%= r.getEmoji() %> <span class="reaction-count"><%= r.getCount() %></span></button>
+                    </form>
+                    <% } %>
+                    <div class="reaction-add-wrap">
+                        <button type="button" class="reaction-add-btn" title="Thả cảm xúc">+</button>
+                        <div class="reaction-picker" style="display: none;">
+                            <% for (String emoji : REACTION_EMOJI) { %>
+                            <form class="inline-form reaction-form" method="post" action="${pageContext.request.contextPath}/account/chat/reaction">
+                                <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
+                                <input type="hidden" name="emoji" value="<%= emoji %>">
+                                <button type="submit" class="reaction-picker-btn"><%= emoji %></button>
+                            </form>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
                 <% } %>
+
                 <% if (isOwn && !isDeleted && ConversationType.DIRECT.equals(conversation.getType())) { %>
                 <span class="read-status"></span>
+                <% } %>
+
+                <% if (!isDeleted) { %>
+                <div class="message-reply-row">
+                    <button type="button" class="reply-btn"
+                            data-message-id="<%= m.getMessageId() %>"
+                            data-sender-label="<%= HtmlUtils.escape(isOwn ? "Bạn" : senderLabel) %>"
+                            data-preview="<%= HtmlUtils.escape(composePreviewText) %>">Trả lời</button>
+                </div>
                 <% } %>
 
                 <% if (isOwn && !isDeleted) { %>
