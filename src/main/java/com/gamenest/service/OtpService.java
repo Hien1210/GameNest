@@ -136,9 +136,77 @@ public class OtpService {
             case OtpPurpose.CHANGE_EMAIL -> "xác nhận đổi email";
             default -> "đặt lại mật khẩu";
         };
-        return "<p>Mã OTP để " + action + " tài khoản GameNest của bạn là:</p>"
-                + "<h2>" + code + "</h2>"
-                + "<p>Mã có hiệu lực trong " + otpTtl.toMinutes() + " phút. "
-                + "Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.</p>";
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Xác thực OTP - GameNest</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #0a0a0f; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="background-color: #0a0a0f; padding: 40px 10px;">
+                    <tr>
+                        <td align="center">
+                            <!-- Outer Wrapper Card -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="max-width: 500px; background-color: #12121d; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
+                                
+                                <!-- Header -->
+                                <tr>
+                                    <td align="center" style="padding: 30px 40px 20px 40px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                                        <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px; color: #06b6d4;">
+                                            <span style="color: #8b5cf6;">Game</span>Nest
+                                        </h1>
+                                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px;">
+                                            Kết Nối. Chinh Phục. Tỏa Sáng.
+                                        </p>
+                                    </td>
+                                </tr>
+            
+                                <!-- Content -->
+                                <tr>
+                                    <td style="padding: 40px 40px 30px 40px;">
+                                        <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #ffffff; text-align: center;">
+                                            MÃ XÁC NHẬN OTP
+                                        </h2>
+                                        <p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.6; color: #d1d5db; text-align: center;">
+                                            Bạn đã nhận được yêu cầu xác thực OTP để <strong>%s</strong> tài khoản GameNest. Vui lòng sử dụng mã dưới đây:
+                                        </p>
+            
+                                        <!-- OTP Display -->
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-bottom: 28px;">
+                                            <tr>
+                                                <td align="center">
+                                                    <div style="background-color: #1b132e; border: 2px solid #8b5cf6; padding: 16px 28px; border-radius: 12px; display: inline-block; letter-spacing: 6px; font-size: 32px; font-weight: 800; color: #06b6d4; font-family: 'Courier New', Courier, monospace;">
+                                                        %s
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
+            
+                                        <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5; color: #9ca3af; text-align: center;">
+                                            Mã có hiệu lực trong vòng <strong>%d phút</strong>.
+                                        </p>
+                                        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #6b7280; text-align: center;">
+                                            Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này một cách an toàn. Vui lòng không chia sẻ mã này cho bất kỳ ai.
+                                        </p>
+                                    </td>
+                                </tr>
+            
+                                <!-- Footer -->
+                                <tr>
+                                    <td align="center" style="padding: 24px 40px; background-color: #0e0e17; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; color: #6b7280; text-align: center; line-height: 1.5;">
+                                        © 2026 GameNest. Mọi quyền được bảo lưu.<br>
+                                        Hệ thống quản lý cộng đồng game thủ hàng đầu.
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+            """.formatted(action, code, otpTtl.toMinutes());
     }
 }
