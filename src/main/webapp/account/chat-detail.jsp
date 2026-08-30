@@ -66,6 +66,8 @@
         .reply-compose-label { font-weight: 600; margin-right: 6px; }
         .reply-compose-text { color: var(--text-secondary); }
         .reply-compose-cancel { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; }
+        .chat-search-form { display: flex; gap: 6px; }
+        .chat-search-form input[type=text] { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 0.82rem; }
         .inline-form { margin: 0; }
         .edit-form { display: flex; gap: 6px; margin-top: 8px; }
         .edit-form input[type=text] { flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; }
@@ -103,6 +105,11 @@
                 </span>
                 <% } %>
             </span>
+            <form class="chat-search-form" method="get" action="${pageContext.request.contextPath}/account/chat/search">
+                <input type="hidden" name="id" value="<%= conversation.getConversationId() %>">
+                <input type="text" name="keyword" maxlength="200" placeholder="Tìm tin nhắn...">
+                <button type="submit" class="btn-sm">Tìm</button>
+            </form>
         </div>
 
         <% if (ConversationType.DIRECT.equals(conversation.getType())) { %>

@@ -2,6 +2,7 @@ package com.gamenest.service;
 
 import com.gamenest.dao.ConversationDAO;
 import com.gamenest.dao.ConversationMemberDAO;
+import com.gamenest.dao.MessageAttachmentDAO;
 import com.gamenest.dao.MessageDAO;
 import com.gamenest.dao.MessageReactionDAO;
 import com.gamenest.exception.AccountNotFoundException;
@@ -13,18 +14,24 @@ import com.gamenest.exception.TeamNotFoundException;
 import com.gamenest.exception.ValidationException;
 import com.gamenest.model.Account;
 import com.gamenest.model.AccountFriendship;
+import com.gamenest.model.ChatAttachmentUpload;
 import com.gamenest.model.Conversation;
 import com.gamenest.model.ConversationMember;
 import com.gamenest.model.ConversationStatus;
 import com.gamenest.model.ConversationType;
 import com.gamenest.model.FriendshipStatus;
 import com.gamenest.model.Message;
+import com.gamenest.model.MessageAttachment;
 import com.gamenest.model.MessageReactionSummary;
+import com.gamenest.model.MessageSearchResult;
 import com.gamenest.model.ReactionResult;
 import com.gamenest.model.Team;
 import com.gamenest.model.TeamMember;
+import com.gamenest.util.CloudinaryUploader;
 import com.gamenest.util.DBConnection;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -34,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Chat core logic — the single authority for every Chat business decision,
@@ -49,8 +58,12 @@ import java.util.Set;
  */
 public class ChatService {
 
+    private static final Logger LOGGER = Logger.getLogger(ChatService.class.getName());
+
     private static final int PAGE_SIZE = 20;
     private static final int MESSAGE_MAX_LENGTH = 2000;
+    private static final int SEARCH_MAX_RESULTS = 50;
+    private static final int SEARCH_KEYWORD_MAX_LENGTH = 200;
 
     // Must match db/22_chat_reaction.sql's CK_MessageReactions_emoji
     // allowlist exactly — the DB CHECK constraint is the real defense
@@ -58,10 +71,18 @@ public class ChatService {
     private static final Set<String> REACTION_EMOJI_ALLOWLIST = new HashSet<>(
             Arrays.asList("👍", "❤️", "😂", "😮", "😢", "😡"));
 
+    // Must match db/23_chat_attachment.sql's CK_MessageAttachments_mime_type/
+    // CK_MessageAttachments_size_bytes exactly — same fast-fail-before-DB
+    // convention as REACTION_EMOJI_ALLOWLIST above.
+    private static final long CHAT_ATTACHMENT_MAX_SIZE_BYTES = 5L * 1024 * 1024;
+    private static final Set<String> CHAT_ATTACHMENT_MIME_ALLOWLIST = new HashSet<>(
+            Arrays.asList("image/jpeg", "image/png", "image/webp"));
+
     private final ConversationDAO conversationDAO;
     private final ConversationMemberDAO conversationMemberDAO;
     private final MessageDAO messageDAO;
     private final MessageReactionDAO messageReactionDAO;
+    private final MessageAttachmentDAO messageAttachmentDAO;
     private final AccountService accountService;
     private final AccountFriendService accountFriendService;
     private final AccountBlockService accountBlockService;
@@ -72,6 +93,7 @@ public class ChatService {
         this.conversationMemberDAO = new ConversationMemberDAO();
         this.messageDAO = new MessageDAO();
         this.messageReactionDAO = new MessageReactionDAO();
+        this.messageAttachmentDAO = new MessageAttachmentDAO();
         this.accountService = new AccountService();
         this.accountFriendService = new AccountFriendService();
         this.accountBlockService = new AccountBlockService();
@@ -248,6 +270,22 @@ public class ChatService {
      */
     public Message sendMessage(int conversationId, int accountId, String content, Integer replyToMessageId)
             throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
+        return sendMessage(conversationId, accountId, content, replyToMessageId, null);
+    }
+
+    /**
+     * Chat Attachment Upload (Image) task — same authorization chain as the
+     * 4-arg {@link #sendMessage}, extended with an optional image attachment.
+     * {@code attachment == null} behaves identically to the 4-arg overload
+     * (delegated from it above) — zero behavior change for text-only/reply
+     * sends. Authorization order is fixed: {@link #requireSendAccess} first,
+     * then reply-target validation, then content/attachment validation, then
+     * (only when there is an attachment) file validation → Cloudinary upload
+     * → DB transaction — so nothing is ever uploaded to Cloudinary before the
+     * caller is confirmed allowed to send here at all.
+     */
+    public Message sendMessage(int conversationId, int accountId, String content, Integer replyToMessageId, ChatAttachmentUpload attachment)
+            throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
 
         Conversation conversation = requireSendAccess(conversationId, accountId);
 
@@ -260,11 +298,167 @@ public class ChatService {
         }
 
         String normalizedContent = content == null ? null : content.trim();
-        validateContent(normalizedContent);
+        validateContentForSend(normalizedContent, attachment != null);
 
-        Message inserted = messageDAO.insert(conversationId, accountId, normalizedContent, replyToMessageId);
-        return messageDAO.findById(inserted.getMessageId())
-                .orElseThrow(() -> new SQLException("Message not found immediately after insert: " + inserted.getMessageId()));
+        if (attachment == null) {
+            Message inserted = messageDAO.insert(conversationId, accountId, normalizedContent, replyToMessageId);
+            return messageDAO.findById(inserted.getMessageId())
+                    .orElseThrow(() -> new SQLException("Message not found immediately after insert: " + inserted.getMessageId()));
+        }
+
+        return sendMessageWithAttachment(conversationId, accountId, normalizedContent, replyToMessageId, attachment);
+    }
+
+    /**
+     * Content rule for a send that may carry an attachment: no attachment ⇒
+     * unchanged behavior (delegates to {@link #validateContent}, empty/null
+     * content still rejected); with an attachment ⇒ empty/null content is a
+     * valid image-only or reply+image send, but {@link #MESSAGE_MAX_LENGTH}
+     * is still enforced when a caption is present. Kept separate from
+     * {@link #validateContent} so {@link #editMessage} (no attachment concept)
+     * keeps its original, unconditional "content required" rule untouched.
+     */
+    private void validateContentForSend(String content, boolean hasAttachment) throws ValidationException {
+        if (!hasAttachment) {
+            validateContent(content);
+            return;
+        }
+        if (content != null && content.length() > MESSAGE_MAX_LENGTH) {
+            throw new ValidationException("Nội dung tin nhắn không được vượt quá " + MESSAGE_MAX_LENGTH + " ký tự.");
+        }
+    }
+
+    /**
+     * The attachment-carrying send path (task spec BƯỚC 8-13): declared-size
+     * and declared-MIME checks first (fast-fail before ever touching the file
+     * bytes or Cloudinary), then a magic-number check on the actual bytes
+     * that must match the declared MIME, then the Cloudinary upload, then a
+     * single DB transaction inserting both the Message and its
+     * MessageAttachments row together — never two separate transactions, and
+     * never a state where the Message is committed but the attachment isn't.
+     * <p>
+     * {@code attachment.getInputStream()} is single-read (task spec BƯỚC 9):
+     * wrapped in a {@link BufferedInputStream}, {@code mark}ed before reading
+     * the header bytes used for the magic-number check, then {@code reset}
+     * before reading the full file for the Cloudinary upload — the
+     * underlying source stream is consumed exactly once.
+     * <p>
+     * If the Cloudinary upload succeeds but the DB transaction then fails
+     * (task spec BƯỚC 12), the DB is rolled back, the now-orphaned Cloudinary
+     * asset is deleted, and the original {@link SQLException} is rethrown
+     * unchanged — a failure to clean up Cloudinary is logged server-side only
+     * and never replaces or masks the original exception.
+     */
+    private Message sendMessageWithAttachment(int conversationId, int accountId, String content, Integer replyToMessageId, ChatAttachmentUpload attachment)
+            throws ValidationException, SQLException {
+
+        if (attachment.getDeclaredSize() <= 0 || attachment.getDeclaredSize() > CHAT_ATTACHMENT_MAX_SIZE_BYTES) {
+            throw new ValidationException("Kích thước ảnh không được vượt quá 5MB.");
+        }
+        String declaredMimeType = attachment.getMimeType();
+        if (declaredMimeType == null || !CHAT_ATTACHMENT_MIME_ALLOWLIST.contains(declaredMimeType)) {
+            throw new ValidationException("Định dạng ảnh không được hỗ trợ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.");
+        }
+
+        byte[] fileBytes;
+        try (BufferedInputStream buffered = new BufferedInputStream(attachment.getInputStream())) {
+            buffered.mark(12);
+            byte[] header = buffered.readNBytes(12);
+            String detectedMimeType = detectImageMimeType(header);
+            if (detectedMimeType == null || !detectedMimeType.equals(declaredMimeType)) {
+                throw new ValidationException("Nội dung tệp không khớp với định dạng ảnh đã khai báo.");
+            }
+            buffered.reset();
+            fileBytes = buffered.readAllBytes();
+        } catch (IOException e) {
+            throw new ValidationException("Không thể đọc tệp ảnh đã tải lên.");
+        }
+
+        if (fileBytes.length > CHAT_ATTACHMENT_MAX_SIZE_BYTES) {
+            throw new ValidationException("Kích thước ảnh không được vượt quá 5MB.");
+        }
+
+        String cloudinaryPublicId;
+        try {
+            cloudinaryPublicId = CloudinaryUploader.uploadChatAttachment(fileBytes);
+        } catch (IOException e) {
+            throw new ValidationException("Tải ảnh lên thất bại. Vui lòng thử lại.");
+        }
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                Message inserted = messageDAO.insert(conn, conversationId, accountId, content, replyToMessageId);
+                messageAttachmentDAO.insert(conn, inserted.getMessageId(), declaredMimeType, fileBytes.length, cloudinaryPublicId);
+                conn.commit();
+                return messageDAO.findById(inserted.getMessageId())
+                        .orElseThrow(() -> new SQLException("Message not found immediately after insert: " + inserted.getMessageId()));
+            } catch (SQLException e) {
+                conn.rollback();
+                cleanupOrphanedCloudinaryAsset(cloudinaryPublicId);
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    /** Compensating cleanup for {@link #sendMessageWithAttachment}'s rollback path — logged server-side only, never thrown (would mask the real DB failure). */
+    private void cleanupOrphanedCloudinaryAsset(String publicId) {
+        try {
+            CloudinaryUploader.deleteChatAttachment(publicId);
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Không thể xóa asset Cloudinary mồ côi sau khi rollback: " + publicId, e);
+        }
+    }
+
+    /**
+     * File-signature check (task spec BƯỚC 8.3) on the actual bytes — JPEG
+     * {@code FF D8 FF}, PNG {@code 89 50 4E 47}, WEBP {@code RIFF} at offset
+     * 0 + {@code WEBP} at offset 8. Returns {@code null} when {@code header}
+     * matches none of the three, which the caller treats as a mismatch/
+     * rejection regardless of what MIME type was declared.
+     */
+    private String detectImageMimeType(byte[] header) {
+        if (header.length >= 3
+                && (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (header.length >= 4
+                && (header[0] & 0xFF) == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47) {
+            return "image/png";
+        }
+        if (header.length >= 12
+                && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
+            return "image/webp";
+        }
+        return null;
+    }
+
+    /**
+     * Chat Attachment Upload (Image) task, read-tier access (task spec BƯỚC
+     * 14): reuses {@link #getAccessibleConversation} — the same read-tier
+     * gate as {@link #listMessages}/{@link #searchMessages}, not
+     * {@link #requireSendAccess} — since fetching an already-sent attachment
+     * is a read operation, not a send. A soft-deleted Message's attachment is
+     * not returned (matches the Message itself being treated as gone for new
+     * interactions, e.g. {@link #toggleReaction}'s same deleted-message
+     * rejection).
+     */
+    public Optional<MessageAttachment> getAttachmentForMessage(int messageId, int accountId)
+            throws MessageNotFoundException, ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
+
+        Message message = messageDAO.findById(messageId)
+                .orElseThrow(() -> new MessageNotFoundException("Tin nhắn không tồn tại."));
+
+        getAccessibleConversation(message.getConversationId(), accountId);
+
+        if (message.getDeletedAt() != null) {
+            throw new ValidationException("Tin nhắn đã bị xóa.");
+        }
+
+        return messageAttachmentDAO.findByMessageId(messageId);
     }
 
     /**
@@ -423,6 +617,57 @@ public class ChatService {
             throws ConversationNotFoundException, ForbiddenException, SQLException {
         getAccessibleConversation(conversationId, accountId);
         return messageDAO.countByConversation(conversationId);
+    }
+
+    /**
+     * Search Message (APPROVED design, Decision 1): read-only, so it reuses
+     * {@link #getAccessibleConversation} — the exact same access check as
+     * {@link #listMessages}/{@link #countMessages} — never
+     * {@link #requireSendAccess}. A DIRECT conversation's history stays
+     * searchable after Unfriend/Block, exactly as it stays readable/
+     * paginable via {@link #listMessages}; requiring Friend+Not-Blocked here
+     * would make old messages searchable-inconsistent with the fact they're
+     * still visible through normal pagination.
+     * <p>
+     * {@code keyword} is trimmed; empty after trim returns an empty list (an
+     * empty search box is a normal no-op, not a validation failure); over
+     * {@link #SEARCH_KEYWORD_MAX_LENGTH} characters throws
+     * {@link ValidationException}. Soft-deleted messages are excluded — the
+     * one place Search deliberately diverges from {@link #listMessages},
+     * which still returns deleted messages for placeholder rendering.
+     * <p>
+     * Each result's {@code page} is the {@link #PAGE_SIZE} pagination page
+     * the message falls on among all of its conversation's messages
+     * (including soft-deleted ones, since those still occupy a slot in
+     * {@link #listMessages}'s own ordering) — computed here, in the Service
+     * layer, since page size is a Service-owned concept, not a DAO one. This
+     * runs one extra indexed lookup per result (capped at
+     * {@link #SEARCH_MAX_RESULTS}, so at most 51 queries total for one
+     * search) rather than a single CTE/{@code ROW_NUMBER()} query — a
+     * deliberate simplicity-over-micro-optimization tradeoff for this
+     * low-frequency, capped, user-triggered action.
+     */
+    public List<MessageSearchResult> searchMessages(int conversationId, int accountId, String keyword)
+            throws ConversationNotFoundException, ForbiddenException, ValidationException, SQLException {
+
+        getAccessibleConversation(conversationId, accountId);
+
+        String trimmed = keyword == null ? "" : keyword.trim();
+        if (trimmed.isEmpty()) {
+            return List.of();
+        }
+        if (trimmed.length() > SEARCH_KEYWORD_MAX_LENGTH) {
+            throw new ValidationException("Từ khóa tìm kiếm không được vượt quá " + SEARCH_KEYWORD_MAX_LENGTH + " ký tự.");
+        }
+
+        List<Message> matches = messageDAO.searchByConversation(conversationId, trimmed, SEARCH_MAX_RESULTS);
+        List<MessageSearchResult> results = new ArrayList<>(matches.size());
+        for (Message message : matches) {
+            int position = messageDAO.countPosition(conversationId, message.getCreatedAt(), message.getMessageId());
+            int page = ((position - 1) / PAGE_SIZE) + 1;
+            results.add(new MessageSearchResult(message, page));
+        }
+        return results;
     }
 
     /**

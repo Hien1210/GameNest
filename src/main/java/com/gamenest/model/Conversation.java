@@ -22,6 +22,7 @@ public class Conversation {
     private LocalDateTime latestMessageCreatedAt;
     private Integer latestMessageSenderId;
     private boolean latestMessageDeleted;
+    private boolean latestMessageHasAttachment;
     private int unreadCount;
 
     public int getConversationId() {
@@ -142,6 +143,14 @@ public class Conversation {
 
     public void setLatestMessageDeleted(boolean latestMessageDeleted) {
         this.latestMessageDeleted = latestMessageDeleted;
+    }
+
+    public boolean isLatestMessageHasAttachment() {
+        return latestMessageHasAttachment;
+    }
+
+    public void setLatestMessageHasAttachment(boolean latestMessageHasAttachment) {
+        this.latestMessageHasAttachment = latestMessageHasAttachment;
     }
 
     public int getUnreadCount() {

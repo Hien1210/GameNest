@@ -135,6 +135,7 @@ public class ConversationDAO {
                 + "op.username AS other_username, op.display_name AS other_display_name, op.avatar_url AS other_avatar_url, "
                 + "lm.content AS latest_message_content, lm.created_at AS latest_message_created_at, "
                 + "lm.sender_account_id AS latest_message_sender_id, lm.deleted_at AS latest_message_deleted_at, "
+                + "lm.attachment_message_id AS latest_message_attachment_id, "
                 + "(SELECT COUNT(*) FROM dbo.Messages msg WHERE msg.conversation_id = c.conversation_id "
                 + "  AND msg.deleted_at IS NULL AND msg.message_id > ISNULL(cm.last_read_message_id, 0)) AS unread_count "
                 + "FROM dbo.ConversationMembers cm "
@@ -146,8 +147,9 @@ public class ConversationDAO {
                 + "  WHERE cm2.conversation_id = c.conversation_id AND cm2.account_id <> ?"
                 + ") op "
                 + "OUTER APPLY ("
-                + "  SELECT TOP 1 m.content, m.created_at, m.sender_account_id, m.deleted_at "
-                + "  FROM dbo.Messages m WHERE m.conversation_id = c.conversation_id "
+                + "  SELECT TOP 1 m.content, m.created_at, m.sender_account_id, m.deleted_at, ma.message_id AS attachment_message_id "
+                + "  FROM dbo.Messages m LEFT JOIN dbo.MessageAttachments ma ON ma.message_id = m.message_id "
+                + "  WHERE m.conversation_id = c.conversation_id "
                 + "  ORDER BY m.created_at DESC, m.message_id DESC"
                 + ") lm "
                 + "WHERE cm.account_id = ? AND (c.type = 'DIRECT' OR t.status = 'ACTIVE') "
@@ -222,6 +224,7 @@ public class ConversationDAO {
         int latestSenderId = rs.getInt("latest_message_sender_id");
         conversation.setLatestMessageSenderId(rs.wasNull() ? null : latestSenderId);
         conversation.setLatestMessageDeleted(rs.getObject("latest_message_deleted_at") != null);
+        conversation.setLatestMessageHasAttachment(rs.getObject("latest_message_attachment_id") != null);
         conversation.setUnreadCount(rs.getInt("unread_count"));
         return conversation;
     }

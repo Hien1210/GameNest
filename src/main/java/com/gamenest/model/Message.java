@@ -40,6 +40,12 @@ public class Message {
     private List<MessageReactionSummary> reactions = Collections.emptyList();
     private String myReaction;
 
+    // Populated only by DAO queries that LEFT JOIN MessageAttachments —
+    // not a persisted column on this entity. Both null unless the message
+    // has an attachment.
+    private String attachmentMimeType;
+    private Long attachmentSizeBytes;
+
     public int getMessageId() {
         return messageId;
     }
@@ -182,5 +188,21 @@ public class Message {
 
     public void setMyReaction(String myReaction) {
         this.myReaction = myReaction;
+    }
+
+    public String getAttachmentMimeType() {
+        return attachmentMimeType;
+    }
+
+    public void setAttachmentMimeType(String attachmentMimeType) {
+        this.attachmentMimeType = attachmentMimeType;
+    }
+
+    public Long getAttachmentSizeBytes() {
+        return attachmentSizeBytes;
+    }
+
+    public void setAttachmentSizeBytes(Long attachmentSizeBytes) {
+        this.attachmentSizeBytes = attachmentSizeBytes;
     }
 }

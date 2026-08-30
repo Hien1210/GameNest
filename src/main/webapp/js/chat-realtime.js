@@ -280,13 +280,30 @@
     function scrollToMessage(messageId) {
         var target = messageList.querySelector('.message-card[data-message-id="' + messageId + '"]');
         if (!target) {
-            return; // target not currently loaded on this page — no Message Search, do nothing (task scope).
+            return; // target not on this page (e.g. a stale Search Message link) — nothing to scroll to.
         }
         target.scrollIntoView({behavior: "smooth", block: "center"});
         target.classList.add("highlight");
         setTimeout(function () {
             target.classList.remove("highlight");
         }, 1500);
+    }
+
+    // Search Message click-navigation (APPROVED design, Phương án B): the
+    // search results page redirects to chat/detail?...&highlight={id}, and
+    // this reads that id straight from the URL client-side — no server
+    // round-trip needed since it's a pure display concern, not part of any
+    // SQL query. Digits-only guard: an unvalidated highlight value gets
+    // concatenated into the querySelector string above, and a stray quote
+    // character there would throw a SyntaxError that could abort the rest
+    // of this IIFE (breaking WS connect() for the whole page) — a crafted
+    // URL must never be able to do that.
+    function highlightFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var highlightId = params.get("highlight");
+        if (highlightId && /^\d+$/.test(highlightId)) {
+            scrollToMessage(highlightId);
+        }
     }
 
     if (replyPreviewCancelBtn) {
@@ -634,4 +651,5 @@
     }
 
     connect();
+    highlightFromUrl();
 })();

@@ -12,6 +12,7 @@ public final class DBConnection {
     private static final String URL;
     private static final String USERNAME;
     private static final String PASSWORD;
+    private static final String CHAT_ATTACHMENT_UPLOAD_DIR;
 
     static {
         Properties props = new Properties();
@@ -26,6 +27,7 @@ public final class DBConnection {
         URL = getConfig(props, "db.url");
         USERNAME = getConfig(props, "db.username");
         PASSWORD = getConfig(props, "db.password");
+        CHAT_ATTACHMENT_UPLOAD_DIR = getConfig(props, "chat.attachment.upload.dir");
 
         // Force-load the driver instead of relying on ServiceLoader
         // auto-discovery, which is unreliable across the multiple
@@ -51,5 +53,9 @@ public final class DBConnection {
 
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(URL, USERNAME, PASSWORD);
+    }
+
+    public static String getChatAttachmentUploadDirectory() {
+        return CHAT_ATTACHMENT_UPLOAD_DIR;
     }
 }
