@@ -4,6 +4,7 @@ target/
 .idea/
 *.iml
 out/
+.smarttomcat/
 
 db.properties
 mail.properties

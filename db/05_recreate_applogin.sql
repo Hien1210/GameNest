@@ -3,6 +3,11 @@
 -- Dùng khi login bị lỗi "Login failed" (Error 18456) không rõ nguyên nhân
 -- dù mật khẩu đã xác nhận đúng, không bị disable/locked.
 -- Chạy bằng tài khoản admin/DBA (sa)
+--
+-- MẬT KHẨU: KHÔNG lưu trong repo. Truyền qua biến SQLCMD APP_LOGIN_PASSWORD, ví dụ:
+--   sqlcmd -S <server> -U sa -v APP_LOGIN_PASSWORD="<mat_khau_manh>" -i 05_recreate_applogin.sql
+-- (Trong SSMS: bật Query > SQLCMD Mode và thêm dòng  :setvar APP_LOGIN_PASSWORD "..."
+--  ở đầu script — không commit dòng đó.)
 -- ============================================================
 
 USE master;
@@ -17,7 +22,7 @@ END
 GO
 
 CREATE LOGIN GameNestAppLogin
-    WITH PASSWORD = 'Thanhhien@2008',
+    WITH PASSWORD = '$(APP_LOGIN_PASSWORD)',
     CHECK_POLICY = OFF,
     CHECK_EXPIRATION = OFF;
 GO

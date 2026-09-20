@@ -13,6 +13,12 @@
 -- mục 7/8, không cần DENY CONTROL.
 --
 -- Chạy bằng tài khoản admin/DBA (sa)
+--
+-- MẬT KHẨU: KHÔNG lưu trong repo. Truyền qua biến SQLCMD SVC_LOGIN_PASSWORD, ví dụ:
+--   sqlcmd -S <server> -U sa -v SVC_LOGIN_PASSWORD="<mat_khau_manh>" -i 06_gamenest_svc_login.sql
+-- (Trong SSMS: bật Query > SQLCMD Mode và thêm dòng  :setvar SVC_LOGIN_PASSWORD "..."
+--  ở đầu script — không commit dòng đó.)
+-- Cùng giá trị này được điền vào db.password trong db.properties (đã .gitignore).
 -- ============================================================
 
 USE GameNestDB;
@@ -30,7 +36,7 @@ IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'GameNestSvcLogin')
 GO
 
 CREATE LOGIN GameNestSvcLogin
-    WITH PASSWORD = 'Thanhhien@2008',
+    WITH PASSWORD = '$(SVC_LOGIN_PASSWORD)',
     CHECK_POLICY = OFF,
     CHECK_EXPIRATION = OFF;
 GO
