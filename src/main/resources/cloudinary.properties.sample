@@ -1,0 +1,9 @@
+cloudinary.cloud_name=your-cloud-name
+cloudinary.api_key=your-api-key
+cloudinary.api_secret=your-api-secret
+
+# Copy this file to cloudinary.properties (gitignored) and fill in real
+# values from your Cloudinary Dashboard (Settings > Access Keys), or set
+# CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET as
+# environment variables instead. Free tier at https://cloudinary.com is
+# enough for avatar uploads.
