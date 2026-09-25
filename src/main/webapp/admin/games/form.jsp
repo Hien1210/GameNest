@@ -19,6 +19,7 @@
 <% } %>
 
 <form action="<%= actionUrl %>" method="post">
+    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
     <div class="admin-form-group">
         <label for="name">Tên trò chơi</label>
         <input type="text" id="name" name="name"

@@ -44,6 +44,7 @@
     <div class="page-header">
         <h1>Thông báo</h1>
         <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/notifications/read-all">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <button type="submit" class="btn-mark-all">Đánh dấu tất cả đã đọc</button>
         </form>
     </div>
@@ -80,6 +81,7 @@
                 <div class="notif-body">
                     <% if (navigable) { %>
                     <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/notifications/open">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="id" value="<%= n.getNotificationId() %>">
                         <button type="submit" class="notif-link-btn">
                             <div class="notif-title-row">
@@ -102,6 +104,7 @@
                 <% if (!n.isRead()) { %>
                 <div class="notif-actions">
                     <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/notifications/read">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="id" value="<%= n.getNotificationId() %>">
                         <button type="submit" class="btn-mark-read">Đánh dấu đã đọc</button>
                     </form>

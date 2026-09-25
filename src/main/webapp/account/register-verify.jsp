@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -22,24 +23,25 @@
 
         <div class="otp-info">
             <p>Mã OTP đã được gửi tới email của bạn:</p>
-            <strong>${email}</strong>
+            <strong><%= HtmlUtils.escape((String) request.getAttribute("email")) %></strong>
         </div>
 
         <% if (request.getAttribute("info") != null) { %>
             <div class="alert alert-success">
                 <span class="material-symbols-outlined alert-icon">check_circle</span>
-                <span><%= request.getAttribute("info") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("info")) %></span>
             </div>
         <% } %>
 
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>
-                <span><%= request.getAttribute("error") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("error")) %></span>
             </div>
         <% } %>
 
         <form action="${pageContext.request.contextPath}/register/verify" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="otp">Mã OTP (6 chữ số)</label>
                 <div class="input-wrapper">
@@ -52,6 +54,7 @@
         </form>
 
         <form action="${pageContext.request.contextPath}/register/verify" method="post" style="margin-top: 15px;">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <input type="hidden" name="resend" value="1">
             <button type="submit" class="btn-secondary">Gửi lại mã OTP</button>
         </form>

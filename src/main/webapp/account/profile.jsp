@@ -90,6 +90,7 @@
         </dl>
 
         <form action="${pageContext.request.contextPath}/account/profile" method="post" enctype="multipart/form-data" class="profile-edit-form">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="displayName">Tên hiển thị</label>
                 <div class="input-wrapper">
@@ -141,6 +142,7 @@
                 <li class="profile-game-chip">
                     <span><%= HtmlUtils.escape(ag.getGameName()) %></span>
                     <form action="${pageContext.request.contextPath}/account/profile/games" method="post">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="gameId" value="<%= ag.getGameId() %>">
                         <input type="hidden" name="action" value="remove-playing">
                         <button type="submit" class="profile-game-remove" aria-label="Bỏ khỏi Đang chơi" title="Bỏ khỏi Đang chơi">&times;</button>
@@ -161,6 +163,7 @@
                 <li class="profile-game-chip">
                     <span><%= HtmlUtils.escape(ag.getGameName()) %></span>
                     <form action="${pageContext.request.contextPath}/account/profile/games" method="post">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="gameId" value="<%= ag.getGameId() %>">
                         <input type="hidden" name="action" value="remove-favorite">
                         <button type="submit" class="profile-game-remove" aria-label="Bỏ khỏi Yêu thích" title="Bỏ khỏi Yêu thích">&times;</button>
@@ -174,6 +177,7 @@
         <% if (allActiveGames != null && !allActiveGames.isEmpty()) { %>
         <div class="profile-games-add">
             <form action="${pageContext.request.contextPath}/account/profile/games" method="post" class="profile-games-add-form">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <select name="gameId" required>
                     <option value="">-- Chọn game --</option>
                     <% for (Game g : allActiveGames) { %>

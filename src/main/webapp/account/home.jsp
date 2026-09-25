@@ -700,6 +700,7 @@
                 <div class="dropdown-divider"></div>
 
                 <form action="${pageContext.request.contextPath}/logout" method="post" style="margin: 0;">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <button type="submit" class="dropdown-item logout">
                         <span class="material-symbols-outlined">logout</span>
                         <span>Đăng xuất</span>

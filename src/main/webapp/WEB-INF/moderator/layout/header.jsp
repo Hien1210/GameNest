@@ -91,6 +91,7 @@
 
                 <div class="mod-avatar-dropdown-divider"></div>
                 <form action="<%= ctx %>/logout" method="post" class="mod-avatar-dropdown-form">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <button type="submit" class="mod-avatar-dropdown-item mod-avatar-dropdown-logout" role="menuitem">
                         <span class="material-symbols-outlined">logout</span>
                         <span>Đăng xuất</span>
@@ -128,6 +129,7 @@
                 <span>Trang chủ GameNest</span>
             </a>
             <form action="<%= ctx %>/logout" method="post" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <button type="submit" class="mod-nav-item" style="width: 100%; background: transparent; border: none; text-align: left; cursor: pointer; font-family: inherit;">
                     <span class="material-symbols-outlined">logout</span>
                     <span>Đăng xuất</span>

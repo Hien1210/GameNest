@@ -55,6 +55,7 @@
             <span>Cấu hình chung</span>
         </h2>
         <form action="${pageContext.request.contextPath}/admin/settings" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="admin-form-group">
                 <label for="siteName">Tên website / Hệ thống</label>
                 <input type="text" id="siteName" name="<%= SystemSettingKey.SITE_NAME %>"
@@ -81,6 +82,7 @@
             <span>Người dùng &amp; Cộng đồng</span>
         </h2>
         <form action="${pageContext.request.contextPath}/admin/settings" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="admin-form-group">
                 <label for="registrationEnabled">Cho phép đăng ký tài khoản mới</label>
                 <select id="registrationEnabled" name="<%= SystemSettingKey.REGISTRATION_ENABLED %>">
@@ -119,6 +121,7 @@
             <span>Bảo mật &amp; Mã OTP</span>
         </h2>
         <form action="${pageContext.request.contextPath}/admin/settings" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="admin-form-group">
                 <label for="otpExpiration">Thời hạn mã OTP (phút)</label>
                 <input type="number" id="otpExpiration" name="<%= SystemSettingKey.OTP_EXPIRATION_MINUTES %>"

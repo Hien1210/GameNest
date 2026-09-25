@@ -54,6 +54,7 @@
         </dl>
 
         <form action="${pageContext.request.contextPath}/reports/create" method="post" class="profile-edit-form">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <input type="hidden" name="targetType" value="<%= HtmlUtils.escape(targetType) %>">
             <input type="hidden" name="targetId" value="<%= targetIdAttr %>">
 

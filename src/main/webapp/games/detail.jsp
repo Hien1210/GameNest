@@ -1,11 +1,12 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.gamenest.model.Game" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${game.name} - GameNest</title>
+    <title><%= HtmlUtils.escape(((Game) request.getAttribute("game")).getName()) %> - GameNest</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
     <style>
         body { display: block; padding: 30px 20px; }
@@ -25,14 +26,14 @@
     <p><a href="${pageContext.request.contextPath}/games" style="color: var(--text-secondary);">&larr; Danh sách Games</a></p>
 
     <% if (game.getCoverImageUrl() != null) { %>
-        <img class="cover" src="<%= game.getCoverImageUrl() %>" alt="<%= game.getName() %>">
+        <img class="cover" src="<%= HtmlUtils.escape(game.getCoverImageUrl()) %>" alt="<%= HtmlUtils.escape(game.getName()) %>">
     <% } %>
 
-    <h1><%= game.getName() %></h1>
+    <h1><%= HtmlUtils.escape(game.getName()) %></h1>
     <p class="status-badge"><%= game.getStatus() %></p>
 
     <% if (game.getDescription() != null) { %>
-        <p style="margin-top: 16px; white-space: pre-line;"><%= game.getDescription() %></p>
+        <p style="margin-top: 16px; white-space: pre-line;"><%= HtmlUtils.escape(game.getDescription()) %></p>
     <% } %>
 
     <% if (game.getReleaseDate() != null) { %>

@@ -137,6 +137,7 @@
     <h2>Quyết định của Moderator</h2>
     <% if (ReportStatus.PENDING.equals(report.getStatus())) { %>
         <form action="${pageContext.request.contextPath}/moderator/reports/resolve" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <input type="hidden" name="id" value="<%= report.getReportId() %>">
             <div class="mod-form-group">
                 <label for="resolutionNote">Ghi chú xử lý (tùy chọn)</label>

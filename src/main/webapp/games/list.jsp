@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -28,13 +29,13 @@
     <div class="page-header">
         <h1>Games</h1>
         <form class="search-form" action="${pageContext.request.contextPath}/games" method="get">
-            <input type="text" name="q" value="${query}" placeholder="Tìm game theo tên...">
+            <input type="text" name="q" value="<%= HtmlUtils.escape((String) request.getAttribute("query")) %>" placeholder="Tìm game theo tên...">
             <button type="submit">Tìm kiếm</button>
         </form>
     </div>
 
     <% if (request.getAttribute("error") != null) { %>
-        <p style="color: var(--error-color);"><%= request.getAttribute("error") %></p>
+        <p style="color: var(--error-color);"><%= HtmlUtils.escape((String) request.getAttribute("error")) %></p>
     <% } %>
 
     <% @SuppressWarnings("unchecked")

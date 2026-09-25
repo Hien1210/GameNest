@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -27,11 +28,12 @@
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>
-                <span><%= request.getAttribute("error") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("error")) %></span>
             </div>
         <% } %>
 
         <form action="${pageContext.request.contextPath}/forgot-password" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="email">Địa chỉ Email</label>
                 <div class="input-wrapper">

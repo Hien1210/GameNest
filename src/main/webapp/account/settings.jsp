@@ -62,6 +62,7 @@
         <% } %>
 
         <form action="${pageContext.request.contextPath}/account/settings/password" method="post" class="profile-edit-form">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="currentPassword">Mật khẩu hiện tại</label>
                 <div class="input-wrapper">
@@ -125,6 +126,7 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/account/settings/email/verify" method="post" class="profile-edit-form">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="otp">Mã OTP (6 chữ số)</label>
                 <div class="input-wrapper">
@@ -136,12 +138,14 @@
         </form>
 
         <form action="${pageContext.request.contextPath}/account/settings/email/verify" method="post" style="margin-top: 12px;">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <input type="hidden" name="resend" value="1">
             <button type="submit" class="btn-secondary">Gửi lại mã OTP</button>
         </form>
         <% } else { %>
 
         <form action="${pageContext.request.contextPath}/account/settings/email" method="post" class="profile-edit-form">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="newEmail">Email mới</label>
                 <div class="input-wrapper">

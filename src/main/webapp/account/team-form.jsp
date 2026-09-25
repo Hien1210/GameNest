@@ -37,6 +37,7 @@
     %>
     <div class="form-card">
         <form method="post" action="${pageContext.request.contextPath}/account/team/create">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="name">Tên nhóm</label>
                 <input type="text" name="name" id="name" maxlength="150" required value="<%= HtmlUtils.escape(fName == null ? "" : fName) %>">

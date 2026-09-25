@@ -74,6 +74,7 @@
                 <a href="${pageContext.request.contextPath}/questions/edit?id=<%= question.getQuestionId() %>">Sửa</a>
             <% } %>
             <form action="${pageContext.request.contextPath}/questions/delete" method="post" onsubmit="return confirm('Xóa câu hỏi này?');">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= question.getQuestionId() %>">
                 <input type="hidden" name="gameId" value="<%= question.getGameId() %>">
                 <button type="submit">Xóa</button>
@@ -105,6 +106,7 @@
                 <% if (isAnswerOwner || isAdmin) { %>
                     <a href="${pageContext.request.contextPath}/answers/edit?id=<%= ans.getAnswerId() %>">Sửa</a>
                     <form style="display:inline;" action="${pageContext.request.contextPath}/answers/delete" method="post" onsubmit="return confirm('Xóa câu trả lời này?');">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="id" value="<%= ans.getAnswerId() %>">
                         <input type="hidden" name="questionId" value="<%= question.getQuestionId() %>">
                         <button type="submit">Xóa</button>
@@ -112,6 +114,7 @@
                 <% }
                 if (isOwner) { %>
                     <form style="display:inline;" action="${pageContext.request.contextPath}/answers/accept" method="post">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="questionId" value="<%= question.getQuestionId() %>">
                         <input type="hidden" name="answerId" value="<%= ans.getAnswerId() %>">
                         <input type="hidden" name="action" value="<%= ans.isAccepted() ? "unaccept" : "accept" %>">
@@ -129,6 +132,7 @@
 
     <% if (isLoggedIn && questionActive) { %>
         <form action="${pageContext.request.contextPath}/answers/new" method="post" style="margin-top: 20px;">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <input type="hidden" name="questionId" value="<%= question.getQuestionId() %>">
             <textarea name="content" placeholder="Viết câu trả lời của bạn..." required></textarea>
             <button type="submit" class="btn-submit">Gửi câu trả lời</button>

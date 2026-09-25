@@ -74,12 +74,14 @@
             <% if (isOwner) { %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/delete"
                   onsubmit="return confirm('Xóa nhóm này? Hành động không thể hoàn tác.');">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                 <button type="submit" class="btn btn-danger">Xóa nhóm</button>
             </form>
             <% } else { %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/leave"
                   onsubmit="return confirm('Rời khỏi nhóm này?');">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                 <button type="submit" class="btn btn-secondary">Rời nhóm</button>
             </form>
@@ -96,6 +98,7 @@
         <div class="info-card">
             <h3>Mời bạn bè</h3>
             <form class="invite-form" method="post" action="${pageContext.request.contextPath}/account/team/invite">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                 <input type="text" name="username" placeholder="Nhập username của bạn bè..." required>
                 <button type="submit" class="btn btn-primary" style="padding: 9px 16px;">Mời</button>
@@ -121,6 +124,7 @@
                     <span style="color: var(--text-secondary); font-size: 0.78rem;"> — <%= inv.getCreatedAt() != null ? inv.getCreatedAt().format(fmt) : "" %></span>
                 </div>
                 <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/invite/cancel">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="invitationId" value="<%= inv.getInvitationId() %>">
                     <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                     <button type="submit" class="btn-sm">Hủy lời mời</button>
@@ -153,12 +157,14 @@
                 <div class="member-actions">
                     <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/transfer-owner"
                           onsubmit="return confirm('Chuyển quyền chủ nhóm cho người này?');">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                         <input type="hidden" name="targetAccountId" value="<%= m.getAccountId() %>">
                         <button type="submit" class="btn-sm">Chuyển quyền</button>
                     </form>
                     <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/remove-member"
                           onsubmit="return confirm('Loại thành viên này khỏi nhóm?');">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="teamId" value="<%= team.getTeamId() %>">
                         <input type="hidden" name="targetAccountId" value="<%= m.getAccountId() %>">
                         <button type="submit" class="btn-sm">Loại khỏi nhóm</button>

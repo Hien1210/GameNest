@@ -61,6 +61,7 @@
         <div class="mod-form-actions">
             <% if (!QuestionStatus.ACTIVE.equals(question.getStatus())) { %>
             <form action="${pageContext.request.contextPath}/moderator/questions/status" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= question.getQuestionId() %>">
                 <input type="hidden" name="action" value="activate">
                 <button type="submit" class="mod-btn">Kích hoạt (ACTIVE)</button>
@@ -68,6 +69,7 @@
             <% } %>
             <% if (!QuestionStatus.HIDDEN.equals(question.getStatus())) { %>
             <form action="${pageContext.request.contextPath}/moderator/questions/status" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= question.getQuestionId() %>">
                 <input type="hidden" name="action" value="hide">
                 <button type="submit" class="mod-btn-secondary">Ẩn (HIDDEN)</button>
@@ -75,6 +77,7 @@
             <% } %>
             <% if (!QuestionStatus.LOCKED.equals(question.getStatus())) { %>
             <form action="${pageContext.request.contextPath}/moderator/questions/status" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= question.getQuestionId() %>">
                 <input type="hidden" name="action" value="lock">
                 <button type="submit" class="mod-btn-danger">Khóa (LOCKED)</button>

@@ -41,13 +41,15 @@ public class QuestionDetailServlet extends HttpServlet {
         }
 
         try {
-            Question question = questionService.getQuestion(questionId);
-            List<Answer> answers = answerService.listActiveByQuestion(questionId);
-
             HttpSession session = request.getSession(false);
             Object accountIdAttr = session == null ? null : session.getAttribute("accountId");
+            Integer viewerAccountId = accountIdAttr == null ? null : (Integer) accountIdAttr;
             boolean isAdmin = session != null && AccountRole.ADMIN.equals(session.getAttribute("role"));
-            boolean isOwner = accountIdAttr != null && ((int) accountIdAttr) == question.getAccountId();
+
+            Question question = questionService.getVisibleQuestion(questionId, viewerAccountId, isAdmin);
+            List<Answer> answers = answerService.listActiveByQuestion(questionId);
+
+            boolean isOwner = viewerAccountId != null && viewerAccountId == question.getAccountId();
 
             request.setAttribute("question", question);
             request.setAttribute("answers", answers);

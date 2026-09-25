@@ -56,7 +56,8 @@
     <% } %>
 
     <div class="form-card">
-        <form method="post" action="<%= formAction %>">
+        <form method="post" action="<%= formAction %>
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">">
             <% if (isEdit) { %>
             <div class="form-group">
                 <label>Game</label>

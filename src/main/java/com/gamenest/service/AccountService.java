@@ -365,7 +365,7 @@ public class AccountService {
         return Math.max(page, 1);
     }
 
-    private String statusMessage(String status) {
+    public static String statusMessage(String status) {
         return switch (status) {
             case AccountStatus.BANNED -> "Tài khoản đã bị cấm.";
             case AccountStatus.SUSPENDED -> "Tài khoản đang bị tạm khóa.";

@@ -62,6 +62,7 @@
             <div class="admin-detail-actions">
                 <% if (!AccountStatus.ACTIVE.equals(account.getStatus())) { %>
                 <form action="${pageContext.request.contextPath}/admin/accounts/status" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= account.getAccountId() %>">
                     <input type="hidden" name="action" value="activate">
                     <button type="submit" class="btn-success">Kích hoạt</button>
@@ -69,6 +70,7 @@
                 <% } %>
                 <% if (!AccountStatus.SUSPENDED.equals(account.getStatus())) { %>
                 <form action="${pageContext.request.contextPath}/admin/accounts/status" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= account.getAccountId() %>">
                     <input type="hidden" name="action" value="suspend">
                     <button type="submit" class="btn-danger">Tạm khóa</button>
@@ -76,6 +78,7 @@
                 <% } %>
                 <% if (!AccountStatus.BANNED.equals(account.getStatus())) { %>
                 <form action="${pageContext.request.contextPath}/admin/accounts/status" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= account.getAccountId() %>">
                     <input type="hidden" name="action" value="ban">
                     <button type="submit" class="btn-danger">Cấm</button>
@@ -83,6 +86,7 @@
                 <% } %>
                 <% if (!AccountStatus.DELETED.equals(account.getStatus())) { %>
                 <form action="${pageContext.request.contextPath}/admin/accounts/status" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= account.getAccountId() %>">
                     <input type="hidden" name="action" value="delete">
                     <button type="submit" class="btn-danger">Đánh dấu đã xóa</button>

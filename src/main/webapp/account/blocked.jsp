@@ -59,6 +59,7 @@
                 <div class="block-time"><%= b.getCreatedAt() != null ? b.getCreatedAt().format(fmt) : "" %></div>
             </div>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/unblock">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" class="btn-unblock">Bỏ chặn</button>
             </form>

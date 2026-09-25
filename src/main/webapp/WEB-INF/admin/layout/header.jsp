@@ -93,6 +93,7 @@
 
                 <div class="admin-avatar-dropdown-divider"></div>
                 <form action="<%= ctx %>/logout" method="post" class="admin-avatar-dropdown-form">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <button type="submit" class="admin-avatar-dropdown-item admin-avatar-dropdown-logout" role="menuitem">
                         <span class="material-symbols-outlined">logout</span>
                         <span>Đăng xuất</span>

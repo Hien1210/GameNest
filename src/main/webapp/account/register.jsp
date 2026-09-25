@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -23,15 +24,16 @@
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>
-                <span><%= request.getAttribute("error") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("error")) %></span>
             </div>
         <% } %>
 
         <form action="${pageContext.request.contextPath}/register" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="username">Tên đăng nhập (Username)</label>
                 <div class="input-wrapper">
-                    <input type="text" id="username" name="username" value="${username}" required maxlength="50" placeholder="Tên đăng nhập viết liền, không dấu">
+                    <input type="text" id="username" name="username" value="<%= HtmlUtils.escape((String) request.getAttribute("username")) %>" required maxlength="50" placeholder="Tên đăng nhập viết liền, không dấu">
                     <span class="material-symbols-outlined input-icon">person</span>
                 </div>
             </div>
@@ -39,7 +41,7 @@
             <div class="form-group">
                 <label for="email">Địa chỉ Email</label>
                 <div class="input-wrapper">
-                    <input type="email" id="email" name="email" value="${email}" required maxlength="255" placeholder="example@domain.com">
+                    <input type="email" id="email" name="email" value="<%= HtmlUtils.escape((String) request.getAttribute("email")) %>" required maxlength="255" placeholder="example@domain.com">
                     <span class="material-symbols-outlined input-icon">mail</span>
                 </div>
             </div>
@@ -56,7 +58,7 @@
             <div class="form-group">
                 <label for="displayName">Tên hiển thị (Tùy chọn)</label>
                 <div class="input-wrapper">
-                    <input type="text" id="displayName" name="displayName" value="${displayName}" maxlength="100" placeholder="Biệt danh hiển thị trên cộng đồng">
+                    <input type="text" id="displayName" name="displayName" value="<%= HtmlUtils.escape((String) request.getAttribute("displayName")) %>" maxlength="100" placeholder="Biệt danh hiển thị trên cộng đồng">
                     <span class="material-symbols-outlined input-icon">badge</span>
                 </div>
             </div>

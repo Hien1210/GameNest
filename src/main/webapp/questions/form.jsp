@@ -32,6 +32,7 @@
     <% } %>
 
     <form action="<%= actionUrl %>" method="post">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
         <% if (!isEdit) { %>
             <input type="hidden" name="gameId" value="<%= gameIdAttr %>">
         <% } %>

@@ -81,6 +81,7 @@
         <div class="mod-form-actions">
             <% if (!AnswerStatus.ACTIVE.equals(answer.getStatus())) { %>
             <form action="${pageContext.request.contextPath}/moderator/answers/status" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= answer.getAnswerId() %>">
                 <input type="hidden" name="action" value="activate">
                 <button type="submit" class="mod-btn">Kích hoạt (ACTIVE)</button>
@@ -88,6 +89,7 @@
             <% } %>
             <% if (!AnswerStatus.HIDDEN.equals(answer.getStatus())) { %>
             <form action="${pageContext.request.contextPath}/moderator/answers/status" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= answer.getAnswerId() %>">
                 <input type="hidden" name="action" value="hide">
                 <button type="submit" class="mod-btn-secondary">Ẩn (HIDDEN)</button>

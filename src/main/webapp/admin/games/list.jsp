@@ -44,6 +44,7 @@
             <td class="admin-actions">
                 <a class="btn-edit" href="${pageContext.request.contextPath}/admin/games/edit?id=<%= g.getGameId() %>">Sửa</a>
                 <form action="${pageContext.request.contextPath}/admin/games/status" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= g.getGameId() %>">
                     <% if (isActive) { %>
                         <input type="hidden" name="action" value="deactivate">

@@ -60,10 +60,12 @@
             </div>
             <div class="invite-actions">
                 <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/invite/accept">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="invitationId" value="<%= inv.getInvitationId() %>">
                     <button type="submit" class="btn-accept">Chấp nhận</button>
                 </form>
                 <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/team/invite/reject">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="invitationId" value="<%= inv.getInvitationId() %>">
                     <button type="submit" class="btn-reject">Từ chối</button>
                 </form>

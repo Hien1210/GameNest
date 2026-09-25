@@ -22,6 +22,7 @@
     <% } %>
 
     <form action="${pageContext.request.contextPath}/answers/edit?id=${answerId}" method="post">
+    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
         <input type="hidden" name="id" value="${answerId}">
         <textarea name="content" required><%= com.gamenest.util.HtmlUtils.escape((String) request.getAttribute("content")) %></textarea>
         <br>

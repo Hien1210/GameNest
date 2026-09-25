@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -23,22 +24,23 @@
         <% if (request.getAttribute("info") != null) { %>
             <div class="alert alert-success">
                 <span class="material-symbols-outlined alert-icon">check_circle</span>
-                <span><%= request.getAttribute("info") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("info")) %></span>
             </div>
         <% } %>
 
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>
-                <span><%= request.getAttribute("error") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("error")) %></span>
             </div>
         <% } %>
 
         <form id="resetForm" action="${pageContext.request.contextPath}/reset-password" method="post" onsubmit="return validatePasswords()">
+        <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="email">Địa chỉ Email</label>
                 <div class="input-wrapper">
-                    <input type="email" id="email" name="email" value="${email}" required placeholder="example@domain.com">
+                    <input type="email" id="email" name="email" value="<%= HtmlUtils.escape((String) request.getAttribute("email")) %>" required placeholder="example@domain.com">
                     <span class="material-symbols-outlined input-icon">mail</span>
                 </div>
             </div>

@@ -38,7 +38,7 @@
 
     <form class="search-form" action="${pageContext.request.contextPath}/questions" method="get">
         <input type="hidden" name="gameId" value="<%= game.getGameId() %>">
-        <input type="text" name="q" value="${query}" placeholder="Tìm câu hỏi theo tiêu đề...">
+        <input type="text" name="q" value="<%= HtmlUtils.escape((String) request.getAttribute("query")) %>" placeholder="Tìm câu hỏi theo tiêu đề...">
         <button type="submit">Tìm kiếm</button>
     </form>
 

@@ -3,6 +3,7 @@ package com.gamenest.controller;
 import com.gamenest.exception.AnswerNotFoundException;
 import com.gamenest.exception.ForbiddenException;
 import com.gamenest.exception.QuestionNotFoundException;
+import com.gamenest.exception.ValidationException;
 import com.gamenest.service.AnswerService;
 
 import jakarta.servlet.ServletException;
@@ -55,7 +56,7 @@ public class AnswerAcceptServlet extends HttpServlet {
         } catch (ForbiddenException e) {
             request.getRequestDispatcher("/access-denied.jsp").forward(request, response);
 
-        } catch (QuestionNotFoundException | AnswerNotFoundException e) {
+        } catch (QuestionNotFoundException | AnswerNotFoundException | ValidationException e) {
             session.setAttribute("flashError", e.getMessage());
             response.sendRedirect(request.getContextPath() + "/questions/detail?id=" + questionId);
 

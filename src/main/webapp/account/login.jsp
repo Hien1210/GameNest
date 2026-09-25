@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.gamenest.util.HtmlUtils" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -44,15 +45,23 @@
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 <span class="material-symbols-outlined alert-icon">error</span>
-                <span><%= request.getAttribute("error") %></span>
+                <span><%= HtmlUtils.escape((String) request.getAttribute("error")) %></span>
+            </div>
+        <% } %>
+
+        <% if (request.getParameter("statusError") != null) { %>
+            <div class="alert alert-error">
+                <span class="material-symbols-outlined alert-icon">error</span>
+                <span><%= HtmlUtils.escape(request.getParameter("statusError")) %></span>
             </div>
         <% } %>
 
         <form action="${pageContext.request.contextPath}/login" method="post">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
             <div class="form-group">
                 <label for="identifier">Username hoặc Email</label>
                 <div class="input-wrapper">
-                    <input type="text" id="identifier" name="identifier" value="${identifier}" required placeholder="Tên đăng nhập hoặc email">
+                    <input type="text" id="identifier" name="identifier" value="<%= HtmlUtils.escape((String) request.getAttribute("identifier")) %>" required placeholder="Tên đăng nhập hoặc email">
                     <span class="material-symbols-outlined input-icon">person</span>
                 </div>
             </div>

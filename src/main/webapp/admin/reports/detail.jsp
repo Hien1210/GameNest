@@ -72,6 +72,7 @@
         <% if (ReportStatus.PENDING.equals(report.getStatus())) { %>
             <div class="admin-form-group">
                 <form action="${pageContext.request.contextPath}/admin/reports/resolve" method="post">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="id" value="<%= report.getReportId() %>">
                     <label for="resolutionNote">Ghi chú xử lý (tùy chọn)</label>
                     <textarea id="resolutionNote" name="resolutionNote" maxlength="1000"></textarea>

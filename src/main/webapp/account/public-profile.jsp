@@ -86,11 +86,13 @@
             <% } else if (viewerLoggedIn && !blockedEitherDirection) { %>
                 <% if (isFollowing) { %>
                 <form method="post" action="${pageContext.request.contextPath}/account/unfollow" style="margin: 0;">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="username" value="<%= encodedUsername %>">
                     <button type="submit" style="padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Following</button>
                 </form>
                 <% } else { %>
                 <form method="post" action="${pageContext.request.contextPath}/account/follow" style="margin: 0;">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="username" value="<%= encodedUsername %>">
                     <button type="submit" style="padding: 9px 18px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); color: #fff; font-weight: 600; cursor: pointer;">Follow</button>
                 </form>
@@ -116,6 +118,7 @@
             <% if (isFriend) { %>
             <span style="padding: 8px 16px; border-radius: 8px; background: rgba(16,185,129,0.12); color: var(--success-color); font-weight: 600; font-size: 0.88rem;">Bạn bè</span>
             <form method="post" action="${pageContext.request.contextPath}/account/friend/unfriend" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="friendshipId" value="<%= friendshipId %>">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Hủy kết bạn</button>
@@ -123,23 +126,27 @@
             <% } else if (friendOutgoingPending) { %>
             <span style="padding: 8px 16px; border-radius: 8px; background: rgba(255,255,255,0.06); color: var(--text-secondary); font-weight: 600; font-size: 0.88rem;">Đã gửi lời mời</span>
             <form method="post" action="${pageContext.request.contextPath}/account/friend/cancel" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="friendshipId" value="<%= friendshipId %>">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Hủy lời mời</button>
             </form>
             <% } else if (friendIncomingPending) { %>
             <form method="post" action="${pageContext.request.contextPath}/account/friend/accept" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="friendshipId" value="<%= friendshipId %>">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); color: #fff; font-weight: 600; cursor: pointer;">Chấp nhận</button>
             </form>
             <form method="post" action="${pageContext.request.contextPath}/account/friend/reject" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="friendshipId" value="<%= friendshipId %>">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Từ chối</button>
             </form>
             <% } else { %>
             <form method="post" action="${pageContext.request.contextPath}/account/friend/request" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Kết bạn</button>
             </form>
@@ -152,6 +159,7 @@
             <% if (isBlockedByViewer) { %>
             <span style="padding: 8px 16px; border-radius: 8px; background: rgba(239,68,68,0.12); color: var(--error-color); font-weight: 600; font-size: 0.88rem;">Đã chặn</span>
             <form method="post" action="${pageContext.request.contextPath}/account/unblock" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <input type="hidden" name="returnTo" value="profile">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer;">Bỏ chặn</button>
@@ -159,6 +167,7 @@
             <% } else { %>
             <form method="post" action="${pageContext.request.contextPath}/account/block"
                   onsubmit="return confirm('Chặn người dùng này? Follow và bạn bè giữa hai bên (nếu có) sẽ bị hủy.');" style="margin: 0;">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="username" value="<%= encodedUsername %>">
                 <button type="submit" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary); font-weight: 600; cursor: pointer; font-size: 0.85rem;">Chặn</button>
             </form>

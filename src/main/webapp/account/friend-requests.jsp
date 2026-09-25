@@ -68,11 +68,13 @@
             </div>
             <div class="request-actions">
                 <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/friend/accept">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="friendshipId" value="<%= f.getFriendshipId() %>">
                     <input type="hidden" name="username" value="<%= encodedUsername %>">
                     <button type="submit" class="btn-accept">Chấp nhận</button>
                 </form>
                 <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/friend/reject">
+                <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                     <input type="hidden" name="friendshipId" value="<%= f.getFriendshipId() %>">
                     <input type="hidden" name="username" value="<%= encodedUsername %>">
                     <button type="submit" class="btn-reject">Từ chối</button>

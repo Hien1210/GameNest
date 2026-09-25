@@ -122,6 +122,7 @@
                 <button type="button" class="reply-compose-cancel" title="Hủy trả lời">&times;</button>
             </div>
             <form class="send-form" method="post" action="${pageContext.request.contextPath}/account/chat/send">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="conversationId" value="<%= conversation.getConversationId() %>">
                 <input type="hidden" id="replyToMessageId" name="replyToMessageId" value="">
                 <textarea name="content" maxlength="2000" placeholder="Nhập tin nhắn..." required></textarea>
@@ -132,6 +133,7 @@
         <% if (messages != null && !messages.isEmpty()) { %>
         <div class="toolbar">
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/chat/read">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="conversationId" value="<%= conversation.getConversationId() %>">
                 <input type="hidden" name="messageId" value="<%= messages.get(0).getMessageId() %>">
                 <button type="submit" class="btn-sm">Đánh dấu đã đọc</button>
@@ -193,6 +195,7 @@
                         boolean mine = r.getEmoji().equals(m.getMyReaction());
                     %>
                     <form class="inline-form reaction-form" method="post" action="${pageContext.request.contextPath}/account/chat/reaction">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
                         <input type="hidden" name="emoji" value="<%= r.getEmoji() %>">
                         <button type="submit" class="reaction-chip <%= mine ? "mine" : "" %>"><%= r.getEmoji() %> <span class="reaction-count"><%= r.getCount() %></span></button>
@@ -203,6 +206,7 @@
                         <div class="reaction-picker" style="display: none;">
                             <% for (String emoji : REACTION_EMOJI) { %>
                             <form class="inline-form reaction-form" method="post" action="${pageContext.request.contextPath}/account/chat/reaction">
+                            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                                 <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
                                 <input type="hidden" name="emoji" value="<%= emoji %>">
                                 <button type="submit" class="reaction-picker-btn"><%= emoji %></button>
@@ -229,6 +233,7 @@
                 <% if (isOwn && !isDeleted) { %>
                 <div class="message-actions">
                     <form class="edit-form" method="post" action="${pageContext.request.contextPath}/account/chat/edit">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
                         <input type="hidden" name="conversationId" value="<%= conversation.getConversationId() %>">
                         <input type="text" name="content" maxlength="2000" value="<%= HtmlUtils.escape(m.getContent()) %>" required>
@@ -236,6 +241,7 @@
                     </form>
                     <form class="inline-form" method="post" action="${pageContext.request.contextPath}/account/chat/delete"
                           onsubmit="return confirm('Xóa tin nhắn này?');">
+                    <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                         <input type="hidden" name="messageId" value="<%= m.getMessageId() %>">
                         <input type="hidden" name="conversationId" value="<%= conversation.getConversationId() %>">
                         <button type="submit" class="btn-sm">Xóa</button>

@@ -58,6 +58,38 @@ public class QuestionService {
     }
 
     /**
+     * Public Question Detail page visibility gate. {@link #getQuestion} on
+     * its own fetches by ID regardless of status — correct for the
+     * owner/moderation call sites that need the record whatever its state,
+     * but wrong for the public detail page, which must not let a HIDDEN or
+     * soft-deleted question be read simply by guessing its question_id in
+     * the URL (defeats moderation/soft-delete). LOCKED stays publicly
+     * readable: locking only blocks new answers (see
+     * {@link AnswerService#createAnswer}), it is not a visibility action.
+     * A restricted question is reported as "not found" rather than
+     * "forbidden" so an unauthorized viewer cannot distinguish hidden/
+     * deleted from never-existed.
+     */
+    public Question getVisibleQuestion(int questionId, Integer viewerAccountId, boolean viewerIsAdmin)
+            throws QuestionNotFoundException, SQLException {
+
+        Question question = getQuestion(questionId);
+
+        boolean restricted = question.isDeleted()
+                || QuestionStatus.HIDDEN.equals(question.getStatus())
+                || QuestionStatus.DELETED.equals(question.getStatus());
+
+        if (restricted) {
+            boolean isOwner = viewerAccountId != null && viewerAccountId == question.getAccountId();
+            if (!isOwner && !viewerIsAdmin) {
+                throw new QuestionNotFoundException("Câu hỏi không tồn tại.");
+            }
+        }
+
+        return question;
+    }
+
+    /**
      * account_id always comes from the authenticated session — never trust a
      * client-supplied account_id. Only allowed against an existing, ACTIVE
      * game.
@@ -88,12 +120,19 @@ public class QuestionService {
     /**
      * Editing is owner-only — ADMIN may moderate (soft-delete) content it
      * does not own, but must never silently rewrite another user's words.
+     * Only ACTIVE questions may be edited: once a moderator hides, locks, or
+     * deletes a question, the owner can no longer rewrite it out from under
+     * that moderation action (same "must be exactly ACTIVE" rule
+     * {@link AnswerService#createAnswer} already applies to new answers).
      */
     public Question updateQuestion(int questionId, int requesterAccountId, String title, String content)
             throws QuestionNotFoundException, ForbiddenException, ValidationException, SQLException {
 
         Question question = getQuestion(questionId);
         requireOwner(question, requesterAccountId);
+        if (!QuestionStatus.ACTIVE.equals(question.getStatus())) {
+            throw new ValidationException("Không thể chỉnh sửa câu hỏi đã bị ẩn, khóa hoặc xóa.");
+        }
 
         title = title == null ? null : title.trim();
         content = content == null ? null : content.trim();

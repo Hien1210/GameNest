@@ -78,12 +78,14 @@
         <div class="actions">
             <% if (canJoin) { %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/lfg/join">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= post.getLfgId() %>">
                 <button type="submit" class="btn btn-join">Tham gia</button>
             </form>
             <% } %>
             <% if (canLeave) { %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/lfg/leave">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= post.getLfgId() %>">
                 <button type="submit" class="btn btn-leave">Rời nhóm</button>
             </form>
@@ -92,12 +94,14 @@
             <a class="btn btn-edit" href="${pageContext.request.contextPath}/lfg/edit?id=<%= post.getLfgId() %>">Chỉnh sửa</a>
             <% if (LFGStatus.OPEN.equals(post.getStatus()) || LFGStatus.FULL.equals(post.getStatus())) { %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/lfg/close">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= post.getLfgId() %>">
                 <button type="submit" class="btn btn-close">Đóng nhóm</button>
             </form>
             <% } %>
             <form class="inline-form" method="post" action="${pageContext.request.contextPath}/lfg/delete"
                   onsubmit="return confirm('Bạn có chắc muốn xóa nhóm này?');">
+            <input type="hidden" name="csrfToken" value="${sessionScope.csrfToken}">
                 <input type="hidden" name="id" value="<%= post.getLfgId() %>">
                 <button type="submit" class="btn btn-delete">Xóa nhóm</button>
             </form>

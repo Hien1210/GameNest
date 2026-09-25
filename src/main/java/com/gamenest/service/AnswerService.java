@@ -83,12 +83,17 @@ public class AnswerService {
     /**
      * Editing is owner-only — ADMIN may moderate (soft-delete) content it
      * does not own, but must never silently rewrite another user's words.
+     * Only ACTIVE answers may be edited, same "must be exactly ACTIVE" rule
+     * {@link #createAnswer} already applies to new answers.
      */
     public Answer updateAnswer(int answerId, int requesterAccountId, String content)
             throws AnswerNotFoundException, ForbiddenException, ValidationException, SQLException {
 
         Answer answer = getAnswer(answerId);
         requireOwner(answer, requesterAccountId);
+        if (!AnswerStatus.ACTIVE.equals(answer.getStatus())) {
+            throw new ValidationException("Không thể chỉnh sửa câu trả lời đã bị ẩn hoặc xóa.");
+        }
 
         content = content == null ? null : content.trim();
         validateContent(content);
@@ -117,10 +122,15 @@ public class AnswerService {
     /**
      * Only the question owner may accept an answer, and only one answer per
      * question may be accepted at a time — both statements run in a single
-     * transaction so that invariant is never briefly violated.
+     * transaction so that invariant is never briefly violated. Both the
+     * Question and the Answer must be ACTIVE: accepting/un-accepting on
+     * hidden, locked, or deleted content is not a valid moderation-adjacent
+     * action (same "must be exactly ACTIVE" rule {@link #createAnswer}
+     * already applies to new answers).
      */
     public void acceptAnswer(int questionId, int answerId, int requesterAccountId)
-            throws QuestionNotFoundException, AnswerNotFoundException, ForbiddenException, SQLException {
+            throws QuestionNotFoundException, AnswerNotFoundException, ForbiddenException, ValidationException,
+            SQLException {
 
         Question question = questionDAO.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException("Câu hỏi không tồn tại."));
@@ -132,6 +142,7 @@ public class AnswerService {
         if (answer.getQuestionId() != questionId) {
             throw new AnswerNotFoundException("Câu trả lời không thuộc câu hỏi này.");
         }
+        requireBothActive(question, answer);
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
@@ -154,8 +165,13 @@ public class AnswerService {
         }
     }
 
+    /**
+     * Same ACTIVE-only requirement as {@link #acceptAnswer}, applied
+     * symmetrically to un-accepting.
+     */
     public void unacceptAnswer(int questionId, int answerId, int requesterAccountId)
-            throws QuestionNotFoundException, AnswerNotFoundException, ForbiddenException, SQLException {
+            throws QuestionNotFoundException, AnswerNotFoundException, ForbiddenException, ValidationException,
+            SQLException {
 
         Question question = questionDAO.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException("Câu hỏi không tồn tại."));
@@ -167,9 +183,19 @@ public class AnswerService {
         if (answer.getQuestionId() != questionId) {
             throw new AnswerNotFoundException("Câu trả lời không thuộc câu hỏi này.");
         }
+        requireBothActive(question, answer);
 
         try (Connection conn = DBConnection.getConnection()) {
             answerDAO.setAccepted(conn, answerId, false);
+        }
+    }
+
+    private void requireBothActive(Question question, Answer answer) throws ValidationException {
+        if (!QuestionStatus.ACTIVE.equals(question.getStatus())) {
+            throw new ValidationException("Không thể thao tác trên câu hỏi đã bị ẩn, khóa hoặc xóa.");
+        }
+        if (!AnswerStatus.ACTIVE.equals(answer.getStatus())) {
+            throw new ValidationException("Không thể thao tác trên câu trả lời đã bị ẩn hoặc xóa.");
         }
     }
 
